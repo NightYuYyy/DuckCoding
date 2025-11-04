@@ -1,0 +1,34 @@
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files
+test/
+coverage/
+
+# Logs
+logs/
+*.log
+
+# Build output
+dist/
+build/
+
+# Tauri
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# TypeScript
+*.tsbuildinfo
