@@ -269,9 +269,32 @@ impl ConfigService {
         let config_path = tool.config_dir.join(&tool.config_file);
         let backup_path = tool.backup_path(profile_name);
 
-        if config_path.exists() {
-            fs::copy(&config_path, &backup_path)?;
+        if !config_path.exists() {
+            anyhow::bail!("配置文件不存在，无法备份");
         }
+
+        // 读取当前配置，只提取 API 相关字段
+        let content = fs::read_to_string(&config_path)
+            .context("读取配置文件失败")?;
+        let settings: Value = serde_json::from_str(&content)
+            .context("解析配置文件失败")?;
+
+        // 只保存 API 相关字段
+        let backup_data = serde_json::json!({
+            "ANTHROPIC_AUTH_TOKEN": settings
+                .get("env")
+                .and_then(|env| env.get("ANTHROPIC_AUTH_TOKEN"))
+                .and_then(|v| v.as_str())
+                .unwrap_or(""),
+            "ANTHROPIC_BASE_URL": settings
+                .get("env")
+                .and_then(|env| env.get("ANTHROPIC_BASE_URL"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+        });
+
+        // 写入备份（仅包含 API 字段）
+        fs::write(&backup_path, serde_json::to_string_pretty(&backup_data)?)?;
 
         Ok(())
     }
@@ -283,11 +306,54 @@ impl ConfigService {
         let backup_config = tool.config_dir.join(format!("config.{}.toml", profile_name));
         let backup_auth = tool.config_dir.join(format!("auth.{}.json", profile_name));
 
+        // 读取 auth.json 中的 API Key
+        let api_key = if auth_path.exists() {
+            let content = fs::read_to_string(&auth_path)?;
+            let auth: Value = serde_json::from_str(&content)?;
+            auth.get("OPENAI_API_KEY")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string()
+        } else {
+            String::new()
+        };
+
+        // 只保存 API 相关字段到备份
+        let backup_auth_data = serde_json::json!({
+            "OPENAI_API_KEY": api_key
+        });
+        fs::write(&backup_auth, serde_json::to_string_pretty(&backup_auth_data)?)?;
+
+        // 对于 config.toml，只保存 base_url（使用简单的 TOML）
         if config_path.exists() {
-            fs::copy(&config_path, &backup_config)?;
-        }
-        if auth_path.exists() {
-            fs::copy(&auth_path, &backup_auth)?;
+            let content = fs::read_to_string(&config_path)?;
+            if let Ok(doc) = content.parse::<toml_edit::DocumentMut>() {
+                // 提取所有 provider 的 base_url
+                let mut backup_doc = toml_edit::DocumentMut::new();
+
+                if let Some(providers) = doc.get("model_providers").and_then(|p| p.as_table()) {
+                    let mut backup_providers = toml_edit::Table::new();
+
+                    for (key, provider) in providers.iter() {
+                        if let Some(provider_table) = provider.as_table() {
+                            if let Some(url) = provider_table.get("base_url") {
+                                let mut backup_provider = toml_edit::Table::new();
+                                backup_provider.insert("base_url", url.clone());
+                                backup_providers.insert(key, toml_edit::Item::Table(backup_provider));
+                            }
+                        }
+                    }
+
+                    backup_doc.insert("model_providers", toml_edit::Item::Table(backup_providers));
+                }
+
+                // 保存当前的 model_provider 选择
+                if let Some(current_provider) = doc.get("model_provider") {
+                    backup_doc.insert("model_provider", current_provider.clone());
+                }
+
+                fs::write(&backup_config, backup_doc.to_string())?;
+            }
         }
 
         Ok(())
@@ -295,17 +361,41 @@ impl ConfigService {
 
     fn backup_gemini(tool: &Tool, profile_name: &str) -> Result<()> {
         let env_path = tool.config_dir.join(".env");
-        let settings_path = tool.config_dir.join(&tool.config_file);
-
         let backup_env = tool.config_dir.join(format!(".env.{}", profile_name));
-        let backup_settings = tool.backup_path(profile_name);
 
-        if env_path.exists() {
-            fs::copy(&env_path, &backup_env)?;
+        if !env_path.exists() {
+            anyhow::bail!("配置文件不存在，无法备份");
         }
-        if settings_path.exists() {
-            fs::copy(&settings_path, &backup_settings)?;
+
+        // 读取 .env 文件，只提取 API 相关字段
+        let content = fs::read_to_string(&env_path)?;
+        let mut api_key = String::new();
+        let mut base_url = String::new();
+        let mut model = String::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+
+            if let Some((key, value)) = trimmed.split_once('=') {
+                match key.trim() {
+                    "GEMINI_API_KEY" => api_key = value.trim().to_string(),
+                    "GOOGLE_GEMINI_BASE_URL" => base_url = value.trim().to_string(),
+                    "GEMINI_MODEL" => model = value.trim().to_string(),
+                    _ => {}
+                }
+            }
         }
+
+        // 只保存 API 相关字段
+        let backup_content = format!(
+            "GEMINI_API_KEY={}\nGOOGLE_GEMINI_BASE_URL={}\nGEMINI_MODEL={}\n",
+            api_key, base_url, model
+        );
+
+        fs::write(&backup_env, backup_content)?;
 
         Ok(())
     }
@@ -376,7 +466,46 @@ impl ConfigService {
             anyhow::bail!("配置文件不存在: {:?}", backup_path);
         }
 
-        fs::copy(&backup_path, &active_path)?;
+        // 读取备份的 API 字段
+        let backup_content = fs::read_to_string(&backup_path)
+            .context("读取备份配置失败")?;
+        let backup_data: Value = serde_json::from_str(&backup_content)
+            .context("解析备份配置失败")?;
+
+        let api_key = backup_data.get("ANTHROPIC_AUTH_TOKEN")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("备份配置中缺少 API Key"))?;
+        let base_url = backup_data.get("ANTHROPIC_BASE_URL")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("备份配置中缺少 Base URL"))?;
+
+        // 读取当前配置（保留其他字段）
+        let mut settings = if active_path.exists() {
+            let content = fs::read_to_string(&active_path)
+                .context("读取当前配置失败")?;
+            serde_json::from_str::<Value>(&content)
+                .unwrap_or(Value::Object(Map::new()))
+        } else {
+            Value::Object(Map::new())
+        };
+
+        // 只更新 env 中的 API 字段，保留其他配置
+        if !settings.is_object() {
+            settings = serde_json::json!({});
+        }
+
+        let obj = settings.as_object_mut().unwrap();
+        if !obj.contains_key("env") {
+            obj.insert("env".to_string(), Value::Object(Map::new()));
+        }
+
+        let env = obj.get_mut("env").unwrap().as_object_mut().unwrap();
+        env.insert("ANTHROPIC_AUTH_TOKEN".to_string(), Value::String(api_key.to_string()));
+        env.insert("ANTHROPIC_BASE_URL".to_string(), Value::String(base_url.to_string()));
+
+        // 写回配置（保留其他字段）
+        fs::write(&active_path, serde_json::to_string_pretty(&settings)?)?;
+
         Ok(())
     }
 
@@ -387,13 +516,76 @@ impl ConfigService {
         let active_config = tool.config_dir.join("config.toml");
         let active_auth = tool.config_dir.join("auth.json");
 
-        if !backup_config.exists() {
-            anyhow::bail!("配置文件不存在: {:?}", backup_config);
+        if !backup_auth.exists() {
+            anyhow::bail!("配置文件不存在: {:?}", backup_auth);
         }
 
-        fs::copy(&backup_config, &active_config)?;
-        if backup_auth.exists() {
-            fs::copy(&backup_auth, &active_auth)?;
+        // 读取备份的 API Key
+        let backup_auth_content = fs::read_to_string(&backup_auth)?;
+        let backup_auth_data: Value = serde_json::from_str(&backup_auth_content)?;
+        let api_key = backup_auth_data.get("OPENAI_API_KEY")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("备份配置中缺少 API Key"))?;
+
+        // 增量更新 auth.json（保留其他字段）
+        let mut auth_data = if active_auth.exists() {
+            let content = fs::read_to_string(&active_auth)?;
+            serde_json::from_str::<Value>(&content)
+                .unwrap_or(Value::Object(Map::new()))
+        } else {
+            Value::Object(Map::new())
+        };
+
+        if let Value::Object(ref mut auth_obj) = auth_data {
+            auth_obj.insert("OPENAI_API_KEY".to_string(), Value::String(api_key.to_string()));
+        }
+
+        fs::write(&active_auth, serde_json::to_string_pretty(&auth_data)?)?;
+
+        // 读取备份的 config.toml（base_url 和 model_provider）
+        if backup_config.exists() {
+            let backup_config_content = fs::read_to_string(&backup_config)?;
+            let backup_doc = backup_config_content.parse::<toml_edit::DocumentMut>()?;
+
+            // 读取当前 config.toml（保留其他配置）
+            let mut active_doc = if active_config.exists() {
+                let content = fs::read_to_string(&active_config)?;
+                content.parse::<toml_edit::DocumentMut>()
+                    .unwrap_or_else(|_| toml_edit::DocumentMut::new())
+            } else {
+                toml_edit::DocumentMut::new()
+            };
+
+            // 只更新 model_providers 中的 base_url（保留其他字段）
+            if let Some(backup_providers) = backup_doc.get("model_providers").and_then(|p| p.as_table()) {
+                if !active_doc.contains_key("model_providers") {
+                    active_doc["model_providers"] = toml_edit::table();
+                }
+
+                for (key, backup_provider) in backup_providers.iter() {
+                    if let Some(backup_provider_table) = backup_provider.as_table() {
+                        if let Some(base_url) = backup_provider_table.get("base_url") {
+                            // 确保 provider 存在
+                            if active_doc["model_providers"][key].is_none() {
+                                active_doc["model_providers"][key] = toml_edit::table();
+                            }
+
+                            // 只更新 base_url
+                            if let Some(active_provider) = active_doc["model_providers"][key].as_table_mut() {
+                                active_provider.insert("base_url", base_url.clone());
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 更新 model_provider 选择（如果备份中有）
+            if let Some(provider) = backup_doc.get("model_provider") {
+                active_doc["model_provider"] = provider.clone();
+            }
+
+            // 写回 config.toml（保留其他字段和注释）
+            fs::write(&active_config, active_doc.to_string())?;
         }
 
         Ok(())
@@ -401,19 +593,59 @@ impl ConfigService {
 
     fn activate_gemini(tool: &Tool, profile_name: &str) -> Result<()> {
         let backup_env = tool.config_dir.join(format!(".env.{}", profile_name));
-        let backup_settings = tool.backup_path(profile_name);
-
         let active_env = tool.config_dir.join(".env");
-        let active_settings = tool.config_dir.join(&tool.config_file);
 
         if !backup_env.exists() {
             anyhow::bail!("配置文件不存在: {:?}", backup_env);
         }
 
-        fs::copy(&backup_env, &active_env)?;
-        if backup_settings.exists() {
-            fs::copy(&backup_settings, &active_settings)?;
+        // 读取备份的 API 字段
+        let backup_content = fs::read_to_string(&backup_env)?;
+        let mut backup_api_key = String::new();
+        let mut backup_base_url = String::new();
+        let mut backup_model = String::new();
+
+        for line in backup_content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+
+            if let Some((key, value)) = trimmed.split_once('=') {
+                match key.trim() {
+                    "GEMINI_API_KEY" => backup_api_key = value.trim().to_string(),
+                    "GOOGLE_GEMINI_BASE_URL" => backup_base_url = value.trim().to_string(),
+                    "GEMINI_MODEL" => backup_model = value.trim().to_string(),
+                    _ => {}
+                }
+            }
         }
+
+        // 读取当前 .env（保留其他字段）
+        let mut env_vars = HashMap::new();
+        if active_env.exists() {
+            let content = fs::read_to_string(&active_env)?;
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if !trimmed.is_empty() && !trimmed.starts_with('#') {
+                    if let Some((key, value)) = trimmed.split_once('=') {
+                        env_vars.insert(key.trim().to_string(), value.trim().to_string());
+                    }
+                }
+            }
+        }
+
+        // 只更新 API 相关字段
+        env_vars.insert("GEMINI_API_KEY".to_string(), backup_api_key);
+        env_vars.insert("GOOGLE_GEMINI_BASE_URL".to_string(), backup_base_url);
+        env_vars.insert("GEMINI_MODEL".to_string(), backup_model);
+
+        // 写回 .env（保留其他字段）
+        let env_content: Vec<String> = env_vars
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect();
+        fs::write(&active_env, env_content.join("\n") + "\n")?;
 
         Ok(())
     }
@@ -440,14 +672,11 @@ impl ConfigService {
             }
             "gemini-cli" => {
                 let backup_env = tool.config_dir.join(format!(".env.{}", profile_name));
-                let backup_settings = tool.backup_path(profile_name);
 
                 if backup_env.exists() {
                     fs::remove_file(backup_env)?;
                 }
-                if backup_settings.exists() {
-                    fs::remove_file(backup_settings)?;
-                }
+                // 注意：不再删除 settings.json 备份，因为新版本不再备份它
             }
             _ => anyhow::bail!("未知工具: {}", tool.id),
         }
