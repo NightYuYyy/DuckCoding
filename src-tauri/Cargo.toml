@@ -23,13 +23,6 @@ urlencoding = "2.1"
 regex = "1"
 anyhow = "1"
 
-# CLI dependencies
-clap = { version = "4", features = ["derive", "cargo"], optional = true }
-inquire = { version = "0.7", optional = true }
-console = { version = "0.15", optional = true }
-colored = { version = "2", optional = true }
-indicatif = { version = "0.17", optional = true }
-
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.25"
 objc = "0.2"
@@ -37,4 +30,3 @@ objc = "0.2"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
-cli = ["clap", "inquire", "console", "colored", "indicatif"]
