@@ -42,6 +42,8 @@ import { TodayStatsCard } from "@/components/TodayStatsCard";
 interface ToolWithUpdate extends ToolStatus {
   hasUpdate?: boolean;
   latestVersion?: string;
+  mirrorVersion?: string;     // 镜像实际可安装的版本
+  mirrorIsStale?: boolean;    // 镜像是否滞后
 }
 
 // 可拖拽的配置项组件
@@ -406,7 +408,9 @@ function App() {
           return {
             ...tool,
             hasUpdate: updateInfo.has_update,
-            latestVersion: updateInfo.latest_version || undefined
+            latestVersion: updateInfo.latest_version || undefined,
+            mirrorVersion: updateInfo.mirror_version || undefined,
+            mirrorIsStale: updateInfo.mirror_is_stale || false
           };
         }
         return tool;
@@ -613,6 +617,8 @@ function App() {
             ...tool,
             hasUpdate: updateInfo.has_update,
             latestVersion: updateInfo.latest_version || undefined,
+            mirrorVersion: updateInfo.mirror_version || undefined,
+            mirrorIsStale: updateInfo.mirror_is_stale || false,
           };
         }
         return tool;
@@ -989,12 +995,35 @@ function App() {
                                 </span>
                               </div>
                               {tool.hasUpdate && tool.latestVersion && (
-                                <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
-                                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">最新版本</span>
-                                  <span className="font-mono text-sm font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 px-3 py-1 rounded-lg">
-                                    {cleanVersion(tool.latestVersion)}
-                                  </span>
-                                </div>
+                                <>
+                                  <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
+                                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">官方最新</span>
+                                    <span className="font-mono text-sm font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 px-3 py-1 rounded-lg">
+                                      {cleanVersion(tool.latestVersion)}
+                                    </span>
+                                  </div>
+                                  {tool.mirrorVersion && tool.mirrorVersion !== tool.latestVersion && (
+                                    <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
+                                      <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">镜像版本</span>
+                                      <span className="font-mono text-sm font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-3 py-1 rounded-lg">
+                                        {cleanVersion(tool.mirrorVersion)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {tool.mirrorIsStale && (
+                                    <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                      <div className="flex items-start gap-2">
+                                        <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                                        <div className="text-xs text-amber-700 dark:text-amber-300">
+                                          <p className="font-semibold mb-1">镜像版本滞后</p>
+                                          <p className="text-amber-600 dark:text-amber-400">
+                                            镜像站版本较旧，建议使用 npm 或官方脚本安装最新版本
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </div>
                           ) : (

@@ -19,6 +19,8 @@ export interface UpdateResult {
   has_update: boolean;
   current_version: string | null;
   latest_version: string | null;
+  mirror_version?: string | null;      // 镜像实际可安装的版本
+  mirror_is_stale?: boolean;           // 镜像是否滞后
   tool_id?: string;
 }
 
