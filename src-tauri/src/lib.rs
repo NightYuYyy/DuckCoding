@@ -15,5 +15,5 @@ pub use services::transparent_proxy_config::TransparentProxyConfigService;
 
 pub use utils::*;
 
-// ���新导出常用类型
+// 重新导出常用类型
 pub use anyhow::{Context, Result};
