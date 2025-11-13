@@ -82,6 +82,30 @@ export interface NodeEnvironment {
 
 export type CloseAction = 'minimize' | 'quit';
 
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+
+export type JsonValue = string | number | boolean | null | JsonObject | JsonValue[];
+
+export type JsonSchema = Record<string, unknown>;
+
+export interface CodexSettingsPayload {
+  config: JsonObject;
+  authToken: string | null;
+}
+
+export interface GeminiEnvConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
+export interface GeminiSettingsPayload {
+  settings: JsonObject;
+  env: GeminiEnvConfig;
+}
+
 export async function checkInstallations(): Promise<ToolStatus[]> {
   return await invoke<ToolStatus[]>('check_installations');
 }
@@ -183,4 +207,66 @@ export async function getUserQuota(): Promise<UserQuotaResult> {
 
 export async function applyCloseAction(action: CloseAction): Promise<void> {
   return await invoke<void>('handle_close_action', { action });
+}
+
+export async function getClaudeSettings(): Promise<JsonObject> {
+  const data = await invoke<JsonValue>('get_claude_settings');
+
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    return data as JsonObject;
+  }
+
+  return {};
+}
+
+export async function saveClaudeSettings(settings: JsonObject): Promise<void> {
+  return await invoke<void>('save_claude_settings', { settings });
+}
+
+export async function getClaudeSchema(): Promise<JsonSchema> {
+  return await invoke<JsonSchema>('get_claude_schema');
+}
+
+export async function getCodexSettings(): Promise<CodexSettingsPayload> {
+  return await invoke<CodexSettingsPayload>('get_codex_settings');
+}
+
+export async function saveCodexSettings(
+  settings: JsonObject,
+  authToken?: string | null,
+): Promise<void> {
+  return await invoke<void>('save_codex_settings', { settings, authToken });
+}
+
+export async function getCodexSchema(): Promise<JsonSchema> {
+  return await invoke<JsonSchema>('get_codex_schema');
+}
+
+export async function getGeminiSettings(): Promise<GeminiSettingsPayload> {
+  const payload = await invoke<GeminiSettingsPayload>('get_gemini_settings');
+  const settings =
+    payload.settings && typeof payload.settings === 'object' && !Array.isArray(payload.settings)
+      ? (payload.settings as JsonObject)
+      : {};
+  const env: GeminiEnvConfig = {
+    apiKey: payload.env?.apiKey ?? '',
+    baseUrl: payload.env?.baseUrl ?? '',
+    model: payload.env?.model ?? 'gemini-2.5-pro',
+  };
+
+  return {
+    settings,
+    env,
+  };
+}
+
+export async function saveGeminiSettings(
+  settings: JsonObject,
+  env: GeminiEnvConfig,
+): Promise<void> {
+  return await invoke<void>('save_gemini_settings', { settings, env });
+}
+
+export async function getGeminiSchema(): Promise<JsonSchema> {
+  return await invoke<JsonSchema>('get_gemini_schema');
 }

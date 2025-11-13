@@ -49,6 +49,9 @@ import {
   GripVertical,
   Trash2,
   Power,
+  SlidersHorizontal,
+  ArrowUpToLine,
+  ArrowDownToLine,
 } from 'lucide-react';
 import {
   checkInstallations,
@@ -103,11 +106,17 @@ import ClaudeLogo from '@/assets/claude-logo.png';
 import CodexLogo from '@/assets/codex-logo.png';
 import GeminiLogo from '@/assets/gemini-logo.png';
 import DuckLogo from '@/assets/duck-logo.png';
+import { SecretInput } from '@/components/SecretInput';
 
 // Import statistics components
 import { QuotaCard } from '@/components/QuotaCard';
 import { UsageChart } from '@/components/UsageChart';
 import { TodayStatsCard } from '@/components/TodayStatsCard';
+import {
+  ClaudeConfigManager,
+  CodexConfigManager,
+  GeminiConfigManager,
+} from '@/components/ToolConfigManager';
 
 interface ToolWithUpdate extends ToolStatus {
   hasUpdate?: boolean;
@@ -246,6 +255,11 @@ function App() {
   // Ref to store timeout ID for cleanup
   const updateMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchTimeRef = useRef<number>(0);
+  const quotaErrorNotifiedRef = useRef(false);
+  const mainScrollRef = useRef<HTMLDivElement | null>(null);
+  const lastScrollTopRef = useRef(0);
+  const [fabVisible, setFabVisible] = useState(false);
+  const [fabDirection, setFabDirection] = useState<'up' | 'down'>('down');
 
   // API 配置表单状态
   const [selectedTool, setSelectedTool] = useState<string>('');
@@ -258,7 +272,7 @@ function App() {
   const [profiles, setProfiles] = useState<Record<string, string[]>>({});
   const [selectedProfile, setSelectedProfile] = useState<Record<string, string>>({});
   const [activeConfigs, setActiveConfigs] = useState<Record<string, ActiveConfig>>({});
-  const [selectedSwitchTab, setSelectedSwitchTab] = useState<string>(''); // 切换配置页面的Tab选择
+  const [selectedSwitchTab, setSelectedSwitchTab] = useState<string>(''); // 配置管理页面的Tab选择
 
   const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
     open: boolean;
@@ -311,6 +325,9 @@ function App() {
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [rememberCloseChoice, setRememberCloseChoice] = useState(false);
   const [closeActionLoading, setCloseActionLoading] = useState<CloseAction | null>(null);
+  const [claudeConfigRefresh, setClaudeConfigRefresh] = useState(0);
+  const [codexConfigRefresh, setCodexConfigRefresh] = useState(0);
+  const [geminiConfigRefresh, setGeminiConfigRefresh] = useState(0);
 
   const logoMap: Record<string, string> = {
     'claude-code': ClaudeLogo,
@@ -639,6 +656,9 @@ function App() {
     }
     lastFetchTimeRef.current = now;
 
+    const formatError = (error: unknown) =>
+      error instanceof Error ? error.message : String(error);
+
     try {
       setLoadingStats(true);
 
@@ -650,6 +670,14 @@ function App() {
         }),
         getUserQuota().catch((err) => {
           console.error('Failed to load user quota:', err);
+          if (!quotaErrorNotifiedRef.current) {
+            quotaErrorNotifiedRef.current = true;
+            toast({
+              variant: 'destructive',
+              title: '额度信息获取失败',
+              description: formatError(err),
+            });
+          }
           return null;
         }),
       ]);
@@ -659,13 +687,59 @@ function App() {
       }
       if (quotaResult) {
         setUserQuota(quotaResult);
+        quotaErrorNotifiedRef.current = false;
       }
     } catch (error) {
       console.error('Failed to load statistics:', error);
     } finally {
       setLoadingStats(false);
     }
-  }, [globalConfig]);
+  }, [globalConfig, toast]);
+
+  const scrollToTop = useCallback(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({
+        top: mainScrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const node = mainScrollRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = node;
+      const topThreshold = 200;
+      const bottomThreshold = 200;
+      const isNearTop = scrollTop <= topThreshold;
+      const isNearBottom = scrollTop + clientHeight >= scrollHeight - bottomThreshold;
+
+      if (isNearTop || isNearBottom) {
+        setFabVisible(false);
+      } else {
+        const previous = lastScrollTopRef.current;
+        const direction = scrollTop > previous ? 'down' : 'up';
+        setFabDirection(direction);
+        setFabVisible(true);
+      }
+
+      lastScrollTopRef.current = scrollTop;
+    };
+
+    handleScroll();
+    node.addEventListener('scroll', handleScroll, { passive: true });
+    return () => node.removeEventListener('scroll', handleScroll);
+  }, [mainScrollRef, activeTab]);
 
   const executeCloseAction = useCallback(
     async (action: CloseAction, remember = false, autoTriggered = false) => {
@@ -1207,6 +1281,13 @@ function App() {
       try {
         const activeConfig = await getActiveConfig(toolId);
         setActiveConfigs({ ...activeConfigs, [toolId]: activeConfig });
+        if (toolId === 'claude-code') {
+          setClaudeConfigRefresh((token) => token + 1);
+        } else if (toolId === 'codex') {
+          setCodexConfigRefresh((token) => token + 1);
+        } else if (toolId === 'gemini-cli') {
+          setGeminiConfigRefresh((token) => token + 1);
+        }
       } catch (error) {
         console.error('Failed to reload active config', error);
       }
@@ -1363,8 +1444,8 @@ function App() {
             onClick={() => setActiveTab('switch')}
             disabled={installedTools.length === 0}
           >
-            <ArrowRightLeft className="mr-2 h-4 w-4" />
-            切换配置
+            <SlidersHorizontal className="mr-2 h-4 w-4" />
+            配置管理
           </Button>
           <Button
             variant={activeTab === 'statistics' ? 'default' : 'ghost'}
@@ -1393,7 +1474,7 @@ function App() {
           </div>
         )}
       </aside>
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto" ref={mainScrollRef}>
         <div className="p-8">
           <div className="max-w-6xl mx-auto">
             {activeTab === 'dashboard' && (
@@ -1911,13 +1992,14 @@ function App() {
                           <div className="space-y-2">
                             <Label htmlFor="api-key">API Key *</Label>
                             <div className="flex gap-2">
-                              <Input
+                              <SecretInput
                                 id="api-key"
-                                type="password"
                                 placeholder="输入 API Key"
                                 value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                className="shadow-sm flex-1"
+                                onValueChange={setApiKey}
+                                className="shadow-sm w-full"
+                                wrapperClassName="flex-1"
+                                toggleLabel="切换 API Key 可见性"
                               />
                               <Button
                                 onClick={handleGenerateApiKey}
@@ -1946,25 +2028,28 @@ function App() {
 
                           {provider === 'duckcoding' && (
                             <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4">
-                              <div className="flex items-start gap-2 mb-3">
-                                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                <h4 className="font-semibold text-blue-900 dark:text-blue-100">
-                                  DuckCoding 默认配置
-                                </h4>
-                              </div>
-                              <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                                <p>
-                                  • Base URL:{' '}
-                                  <code className="bg-white/50 dark:bg-slate-900/50 px-1.5 py-0.5 rounded">
-                                    {selectedTool === 'codex'
-                                      ? 'https://jp.duckcoding.com/v1'
-                                      : 'https://jp.duckcoding.com'}
-                                  </code>
-                                </p>
-                                <p>• 无需手动填写 Base URL，将自动使用默认端点</p>
-                                <p>
-                                  • 切换配置后，请<strong>重启相关 CLI</strong> 以使新配置生效
-                                </p>
+                              <div className="flex items-start gap-3">
+                                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                                <div className="space-y-2">
+                                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                    DuckCoding 默认配置
+                                  </p>
+                                  <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                                    <p>
+                                      • Base URL:{' '}
+                                      <code className="bg-white/50 dark:bg-slate-900/50 px-1.5 py-0.5 rounded">
+                                        {selectedTool === 'codex'
+                                          ? 'https://jp.duckcoding.com/v1'
+                                          : 'https://jp.duckcoding.com'}
+                                      </code>
+                                    </p>
+                                    <p>• 无需手动填写 Base URL，将自动使用默认端点</p>
+                                    <p>
+                                      • 配置管理操作完成并切换配置后，请
+                                      <strong>重启相关 CLI</strong> 以使新配置生效
+                                    </p>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -2052,8 +2137,8 @@ function App() {
             {activeTab === 'switch' && (
               <div>
                 <div className="mb-6">
-                  <h2 className="text-2xl font-semibold mb-1">切换配置</h2>
-                  <p className="text-sm text-muted-foreground">在不同的配置文件之间快速切换</p>
+                  <h2 className="text-2xl font-semibold mb-1">配置管理</h2>
+                  <p className="text-sm text-muted-foreground">集中管理和切换不同配置文件</p>
                 </div>
 
                 {/* 重启提示 */}
@@ -2063,7 +2148,8 @@ function App() {
                     <div className="space-y-1">
                       <h4 className="font-semibold text-amber-900 dark:text-amber-100">重要提示</h4>
                       <p className="text-sm text-amber-800 dark:text-amber-200">
-                        切换配置后，如果工具正在运行，<strong>需要重启对应的工具</strong>
+                        在配置管理中切换配置后，如果工具仍在运行，
+                        <strong>需要重启对应的工具</strong>
                         才能使新配置生效。
                       </p>
                     </div>
@@ -2071,109 +2157,123 @@ function App() {
                 </div>
 
                 {installedTools.length > 0 ? (
-                  <Tabs value={selectedSwitchTab} onValueChange={setSelectedSwitchTab}>
-                    <TabsList className="grid w-full grid-cols-3 mb-6">
-                      {installedTools.map((tool) => (
-                        <TabsTrigger key={tool.id} value={tool.id} className="gap-2">
-                          <img src={logoMap[tool.id]} alt={tool.name} className="w-4 h-4" />
-                          {tool.name}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
+                  <>
+                    <Tabs value={selectedSwitchTab} onValueChange={setSelectedSwitchTab}>
+                      <TabsList className="grid w-full grid-cols-3 mb-6">
+                        {installedTools.map((tool) => (
+                          <TabsTrigger key={tool.id} value={tool.id} className="gap-2">
+                            <img src={logoMap[tool.id]} alt={tool.name} className="w-4 h-4" />
+                            {tool.name}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
 
-                    {installedTools.map((tool) => {
-                      const toolProfiles = profiles[tool.id] || [];
-                      const activeConfig = activeConfigs[tool.id];
-                      return (
-                        <TabsContent key={tool.id} value={tool.id}>
-                          <Card className="shadow-sm border">
-                            <CardContent className="pt-6">
-                              {/* 显示当前生效的配置 */}
-                              {activeConfig && (
-                                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 rounded-lg border border-blue-200 dark:border-blue-800">
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <Key className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">
-                                      当前生效配置
-                                    </h4>
-                                  </div>
-                                  <div className="space-y-2 text-sm">
-                                    {activeConfig.profile_name && (
+                      {installedTools.map((tool) => {
+                        const toolProfiles = profiles[tool.id] || [];
+                        const activeConfig = activeConfigs[tool.id];
+                        return (
+                          <TabsContent key={tool.id} value={tool.id}>
+                            <Card className="shadow-sm border">
+                              <CardContent className="pt-6">
+                                {/* 显示当前生效的配置 */}
+                                {activeConfig && (
+                                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <Key className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                      <h4 className="font-semibold text-blue-900 dark:text-blue-100">
+                                        当前生效配置
+                                      </h4>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                      {activeConfig.profile_name && (
+                                        <div className="flex items-start gap-2">
+                                          <span className="text-blue-700 dark:text-blue-300 font-medium min-w-20">
+                                            配置名称:
+                                          </span>
+                                          <span className="font-semibold text-blue-900 dark:text-blue-100 bg-white/50 dark:bg-slate-900/50 px-2 py-0.5 rounded">
+                                            {activeConfig.profile_name}
+                                          </span>
+                                        </div>
+                                      )}
                                       <div className="flex items-start gap-2">
                                         <span className="text-blue-700 dark:text-blue-300 font-medium min-w-20">
-                                          配置名称:
+                                          API Key:
                                         </span>
-                                        <span className="font-semibold text-blue-900 dark:text-blue-100 bg-white/50 dark:bg-slate-900/50 px-2 py-0.5 rounded">
-                                          {activeConfig.profile_name}
+                                        <span className="font-mono text-blue-900 dark:text-blue-100 bg-white/50 dark:bg-slate-900/50 px-2 py-0.5 rounded">
+                                          {maskApiKey(activeConfig.api_key)}
                                         </span>
                                       </div>
-                                    )}
-                                    <div className="flex items-start gap-2">
-                                      <span className="text-blue-700 dark:text-blue-300 font-medium min-w-20">
-                                        API Key:
-                                      </span>
-                                      <span className="font-mono text-blue-900 dark:text-blue-100 bg-white/50 dark:bg-slate-900/50 px-2 py-0.5 rounded">
-                                        {maskApiKey(activeConfig.api_key)}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-start gap-2">
-                                      <span className="text-blue-700 dark:text-blue-300 font-medium min-w-20">
-                                        Base URL:
-                                      </span>
-                                      <span className="font-mono text-blue-900 dark:text-blue-100 bg-white/50 dark:bg-slate-900/50 px-2 py-0.5 rounded break-all">
-                                        {activeConfig.base_url}
-                                      </span>
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-blue-700 dark:text-blue-300 font-medium min-w-20">
+                                          Base URL:
+                                        </span>
+                                        <span className="font-mono text-blue-900 dark:text-blue-100 bg-white/50 dark:bg-slate-900/50 px-2 py-0.5 rounded break-all">
+                                          {activeConfig.base_url}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
 
-                              {toolProfiles.length > 0 ? (
-                                <div className="space-y-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Label>可用的配置文件（拖拽可调整顺序）</Label>
-                                  </div>
-                                  <DndContext
-                                    sensors={sensors}
-                                    collisionDetection={closestCenter}
-                                    onDragEnd={handleDragEnd(tool.id)}
-                                  >
-                                    <SortableContext
-                                      items={toolProfiles}
-                                      strategy={verticalListSortingStrategy}
+                                {toolProfiles.length > 0 ? (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Label>可用的配置文件（拖拽可调整顺序）</Label>
+                                    </div>
+                                    <DndContext
+                                      sensors={sensors}
+                                      collisionDetection={closestCenter}
+                                      onDragEnd={handleDragEnd(tool.id)}
                                     >
-                                      <div className="space-y-2">
-                                        {toolProfiles.map((profile) => (
-                                          <SortableProfileItem
-                                            key={profile}
-                                            profile={profile}
-                                            toolId={tool.id}
-                                            switching={switching}
-                                            deleting={
-                                              deletingProfiles[`${tool.id}-${profile}`] || false
-                                            }
-                                            onSwitch={handleSwitchProfile}
-                                            onDelete={handleDeleteProfile}
-                                          />
-                                        ))}
-                                      </div>
-                                    </SortableContext>
-                                  </DndContext>
-                                </div>
-                              ) : (
-                                <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                                  <p className="text-muted-foreground mb-3">暂无保存的配置文件</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    在"配置 API"页面保存配置时填写名称即可创建多个配置
-                                  </p>
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        </TabsContent>
-                      );
-                    })}
-                  </Tabs>
+                                      <SortableContext
+                                        items={toolProfiles}
+                                        strategy={verticalListSortingStrategy}
+                                      >
+                                        <div className="space-y-2">
+                                          {toolProfiles.map((profile) => (
+                                            <SortableProfileItem
+                                              key={profile}
+                                              profile={profile}
+                                              toolId={tool.id}
+                                              switching={switching}
+                                              deleting={
+                                                deletingProfiles[`${tool.id}-${profile}`] || false
+                                              }
+                                              onSwitch={handleSwitchProfile}
+                                              onDelete={handleDeleteProfile}
+                                            />
+                                          ))}
+                                        </div>
+                                      </SortableContext>
+                                    </DndContext>
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                                    <p className="text-muted-foreground mb-3">暂无保存的配置文件</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      在"配置 API"页面保存配置时填写名称即可创建多个配置
+                                    </p>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
+                        );
+                      })}
+                    </Tabs>
+
+                    <div className="mt-8 space-y-4">
+                      {selectedSwitchTab === 'claude-code' && (
+                        <ClaudeConfigManager refreshSignal={claudeConfigRefresh} />
+                      )}
+                      {selectedSwitchTab === 'codex' && (
+                        <CodexConfigManager refreshSignal={codexConfigRefresh} />
+                      )}
+                      {selectedSwitchTab === 'gemini-cli' && (
+                        <GeminiConfigManager refreshSignal={geminiConfigRefresh} />
+                      )}
+                    </div>
+                  </>
                 ) : (
                   <Card className="shadow-sm border">
                     <CardContent className="py-16 text-center">
@@ -2193,6 +2293,24 @@ function App() {
             )}
           </div>
         </div>
+
+        {activeTab === 'switch' && (
+          <div className="fixed bottom-6 right-6 z-40 flex flex-col items-center">
+            <Button
+              size="icon"
+              variant="secondary"
+              className={`rounded-full shadow-lg/80 bg-white/90 dark:bg-slate-900/90 text-slate-900 dark:text-slate-50 transition-opacity duration-300 ${fabVisible ? 'opacity-90' : 'opacity-0 pointer-events-none'}`}
+              onClick={fabDirection === 'down' ? scrollToBottom : scrollToTop}
+              aria-label={fabDirection === 'down' ? '跳转到底部' : '回到顶部'}
+            >
+              {fabDirection === 'down' ? (
+                <ArrowDownToLine className="h-4 w-4" />
+              ) : (
+                <ArrowUpToLine className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        )}
       </main>
 
       {/* 全局设置对话框 */}
