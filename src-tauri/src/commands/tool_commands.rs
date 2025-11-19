@@ -101,10 +101,7 @@ pub async fn install_tool(
 
     let force = force.unwrap_or(false);
     #[cfg(debug_assertions)]
-    println!(
-        "Installing {} via {} (using InstallerService, force={})",
-        tool, method, force
-    );
+    println!("Installing {tool} via {method} (using InstallerService, force={force})");
 
     // 获取工具定义
     let tool_obj =
@@ -115,7 +112,7 @@ pub async fn install_tool(
         "npm" => InstallMethod::Npm,
         "brew" => InstallMethod::Brew,
         "official" => InstallMethod::Official,
-        _ => return Err(format!("❌ 未知的安装方法: {}", method)),
+        _ => return Err(format!("❌ 未知的安装方法: {method}")),
     };
 
     // 使用 InstallerService 安装
@@ -151,9 +148,9 @@ pub async fn check_update(tool: String) -> Result<UpdateResult, String> {
     apply_proxy_if_configured();
 
     #[cfg(debug_assertions)]
-    println!("Checking updates for {} (using VersionService)", tool);
+    println!("Checking updates for {tool} (using VersionService)");
 
-    let tool_obj = Tool::by_id(&tool).ok_or_else(|| format!("未知工具: {}", tool))?;
+    let tool_obj = Tool::by_id(&tool).ok_or_else(|| format!("未知工具: {tool}"))?;
 
     let version_service = VersionService::new();
 
@@ -172,7 +169,7 @@ pub async fn check_update(tool: String) -> Result<UpdateResult, String> {
             // 降级：如果检查失败，返回无法检查但不报错
             Ok(UpdateResult {
                 success: true,
-                message: format!("无法检查更新: {}", e),
+                message: format!("无法检查更新: {e}"),
                 has_update: false,
                 current_version: None,
                 latest_version: None,
@@ -221,10 +218,7 @@ pub async fn update_tool(tool: String, force: Option<bool>) -> Result<UpdateResu
 
     let force = force.unwrap_or(false);
     #[cfg(debug_assertions)]
-    println!(
-        "Updating {} (using InstallerService, force={})",
-        tool, force
-    );
+    println!("Updating {tool} (using InstallerService, force={force})");
 
     // 获取工具定义
     let tool_obj =

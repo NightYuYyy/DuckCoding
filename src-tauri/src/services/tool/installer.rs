@@ -125,7 +125,7 @@ impl InstallerService {
         .unwrap_or_else(|e| crate::utils::CommandResult {
             success: false,
             stdout: String::new(),
-            stderr: format!("任务执行失败: {}", e),
+            stderr: format!("任务执行失败: {e}"),
             exit_code: None,
         })
     }
@@ -152,7 +152,7 @@ impl InstallerService {
                     } else {
                         "2>/dev/null"
                     };
-                    let cmd = format!("npm list -g @openai/codex {}", stderr_redirect);
+                    let cmd = format!("npm list -g @openai/codex {stderr_redirect}");
                     let result = self.executor.execute_async(&cmd).await;
                     if result.success {
                         return Some(InstallMethod::Npm);
@@ -169,7 +169,7 @@ impl InstallerService {
                     } else {
                         "2>/dev/null"
                     };
-                    let cmd = format!("npm list -g @anthropic-ai/claude-code {}", stderr_redirect);
+                    let cmd = format!("npm list -g @anthropic-ai/claude-code {stderr_redirect}");
                     let result = self.executor.execute_async(&cmd).await;
                     if result.success {
                         return Some(InstallMethod::Npm);
@@ -191,7 +191,7 @@ impl InstallerService {
             let version_service = VersionService::new();
             match version_service.check_version(tool).await {
                 Ok(info) => version_info = Some(info),
-                Err(e) => eprintln!("⚠️  无法检查镜像状态: {}", e),
+                Err(e) => eprintln!("⚠️  无法检查镜像状态: {e}"),
             }
         }
 
@@ -202,7 +202,7 @@ impl InstallerService {
                     let mirror_ver = info.mirror_version.clone().unwrap_or_default();
                     let official_ver = info.latest_version.clone().unwrap_or_default();
 
-                    anyhow::bail!("MIRROR_STALE|{}|{}", mirror_ver, official_ver);
+                    anyhow::bail!("MIRROR_STALE|{mirror_ver}|{official_ver}");
                 }
             }
         }
@@ -231,14 +231,12 @@ impl InstallerService {
                         if supports_encoding {
                             // PowerShell 7+ 支持 -OutputEncoding
                             format!(
-                                "{} -NoProfile -ExecutionPolicy Bypass -OutputEncoding UTF8 -Command \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; irm https://mirror.duckcoding.com/claude-code/install.ps1 | iex\"",
-                                ps_exe
+                                "{ps_exe} -NoProfile -ExecutionPolicy Bypass -OutputEncoding UTF8 -Command \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; irm https://mirror.duckcoding.com/claude-code/install.ps1 | iex\""
                             )
                         } else {
                             // PowerShell 5 不支持 -OutputEncoding，使用 chcp 处理编码
                             format!(
-                                "cmd /C \"chcp 65001 >nul && {} -NoProfile -ExecutionPolicy Bypass -Command \\\"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; irm https://mirror.duckcoding.com/claude-code/install.ps1 | iex\\\"\"",
-                                ps_exe
+                                "cmd /C \"chcp 65001 >nul && {ps_exe} -NoProfile -ExecutionPolicy Bypass -Command \\\"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; irm https://mirror.duckcoding.com/claude-code/install.ps1 | iex\\\"\""
                             )
                         }
                     }
@@ -280,10 +278,8 @@ impl InstallerService {
         };
 
         // 使用国内镜像加速
-        let command = format!(
-            "npm install -g {} --registry https://registry.npmmirror.com",
-            package_spec
-        );
+        let command =
+            format!("npm install -g {package_spec} --registry https://registry.npmmirror.com");
         let result = self.executor.execute_async(&command).await;
 
         if result.success {
@@ -332,7 +328,7 @@ impl InstallerService {
             let version_service = VersionService::new();
             match version_service.check_version(tool).await {
                 Ok(info) => version_info = Some(info),
-                Err(e) => eprintln!("⚠️  无法检查镜像状态: {}", e),
+                Err(e) => eprintln!("⚠️  无法检查镜像状态: {e}"),
             }
         }
 
@@ -343,7 +339,7 @@ impl InstallerService {
                     let mirror_ver = info.mirror_version.clone().unwrap_or_default();
                     let official_ver = info.latest_version.clone().unwrap_or_default();
 
-                    anyhow::bail!("MIRROR_STALE|{}|{}", mirror_ver, official_ver);
+                    anyhow::bail!("MIRROR_STALE|{mirror_ver}|{official_ver}");
                 }
             }
         }

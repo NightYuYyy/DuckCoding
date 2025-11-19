@@ -63,7 +63,7 @@ impl TransparentProxyConfigService {
         );
         env_mut.insert(
             "ANTHROPIC_BASE_URL".to_string(),
-            Value::String(format!("http://127.0.0.1:{}", local_proxy_port)),
+            Value::String(format!("http://127.0.0.1:{local_proxy_port}")),
         );
 
         // 写入配置
@@ -187,7 +187,7 @@ impl TransparentProxyConfigService {
         );
         env.insert(
             "ANTHROPIC_BASE_URL".to_string(),
-            Value::String(format!("http://127.0.0.1:{}", local_proxy_port)),
+            Value::String(format!("http://127.0.0.1:{local_proxy_port}")),
         );
 
         // 写入配置
@@ -228,7 +228,7 @@ impl TransparentProxyConfigService {
         let backup_path = tool.backup_path(profile_name);
 
         if !backup_path.exists() {
-            anyhow::bail!("备份配置文件不存在: {:?}", backup_path);
+            anyhow::bail!("备份配置文件不存在: {backup_path:?}");
         }
 
         let content = fs::read_to_string(&backup_path).context("读取备份配置失败")?;

@@ -18,6 +18,6 @@ pub fn handle_close_action(window: WebviewWindow, action: String) -> Result<(), 
             window.app_handle().exit(0);
             Ok(())
         }
-        other => Err(format!("未知的关闭操作: {}", other)),
+        other => Err(format!("未知的关闭操作: {other}")),
     }
 }

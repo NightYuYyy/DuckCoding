@@ -54,8 +54,13 @@ for (const step of steps) {
   const result = spawnSync(step.command[0], step.command.slice(1), {
     stdio: 'inherit',
     cwd: projectRoot,
+    shell: process.platform === 'win32',
   });
   if (result.status !== 0) {
+    console.log('DEBUG: Command failed');
+    console.log('Error:', result.error);
+    console.log('Status:', result.status);
+    console.log('Signal:', result.signal);
     banner(`⚠ ${step.name} 失败`);
     failures.push({ name: step.name, status: result.status ?? 1 });
     continue;
@@ -89,6 +94,7 @@ function ensureDist() {
     const result = spawnSync('npm', ['run', 'build'], {
       stdio: 'inherit',
       cwd: projectRoot,
+      shell: process.platform === 'win32',
     });
     if (result.status !== 0) {
       banner('⚠ npm run build 失败，后续 Rust Clippy 将跳过');

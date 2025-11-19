@@ -74,13 +74,13 @@ impl PlatformInfo {
         ];
 
         if let Ok(local_app_data) = env::var("LOCALAPPDATA") {
-            paths.push(format!("{}\\Programs\\claude-code", local_app_data));
-            paths.push(format!("{}\\Programs\\claude\\bin", local_app_data));
+            paths.push(format!("{local_app_data}\\Programs\\claude-code"));
+            paths.push(format!("{local_app_data}\\Programs\\claude\\bin"));
         }
 
         if let Ok(user_profile) = env::var("USERPROFILE") {
-            paths.push(format!("{}\\.claude\\bin", user_profile));
-            paths.push(format!("{}\\.local\\bin", user_profile));
+            paths.push(format!("{user_profile}\\.claude\\bin"));
+            paths.push(format!("{user_profile}\\.local\\bin"));
         }
 
         paths
@@ -99,26 +99,26 @@ impl PlatformInfo {
 
         if let Some(home_dir) = dirs::home_dir() {
             let home_str = home_dir.to_string_lossy();
-            paths.insert(0, format!("{}/.local/bin", home_str));
-            paths.insert(0, format!("{}/.claude/bin", home_str));
-            paths.insert(0, format!("{}/.claude/local", home_str));
+            paths.insert(0, format!("{home_str}/.local/bin"));
+            paths.insert(0, format!("{home_str}/.claude/bin"));
+            paths.insert(0, format!("{home_str}/.claude/local"));
 
             // NVM 支持 - 优先使用当前激活的版本
             if let Ok(nvm_dir) = std::env::var("NVM_DIR") {
                 // 检查 nvm current symlink
-                let nvm_current = format!("{}/current/bin", nvm_dir);
+                let nvm_current = format!("{nvm_dir}/current/bin");
                 if std::path::Path::new(&nvm_current).exists() {
                     paths.insert(0, nvm_current);
                 } else {
                     // 如果没有 current symlink，尝试使用 default
-                    let nvm_default = format!("{}/.nvm/versions/node/default/bin", home_str);
+                    let nvm_default = format!("{home_str}/.nvm/versions/node/default/bin");
                     if std::path::Path::new(&nvm_default).exists() {
                         paths.insert(0, nvm_default);
                     }
                 }
             } else {
                 // 如果 NVM_DIR 未设置，尝试默认路径
-                let nvm_current = format!("{}/.nvm/current/bin", home_str);
+                let nvm_current = format!("{home_str}/.nvm/current/bin");
                 if std::path::Path::new(&nvm_current).exists() {
                     paths.insert(0, nvm_current);
                 }
@@ -126,10 +126,10 @@ impl PlatformInfo {
 
             // npm global bin 支持 - 检查自定义 npm prefix
             if let Ok(npm_prefix) = std::env::var("NPM_CONFIG_PREFIX") {
-                paths.insert(0, format!("{}/bin", npm_prefix));
+                paths.insert(0, format!("{npm_prefix}/bin"));
             } else {
                 // 默认 npm global bin 路径
-                paths.push(format!("{}/.npm-global/bin", home_str));
+                paths.push(format!("{home_str}/.npm-global/bin"));
             }
         }
 

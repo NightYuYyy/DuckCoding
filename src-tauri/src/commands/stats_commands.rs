@@ -75,10 +75,9 @@ pub async fn get_usage_stats() -> Result<UsageStatsResult, String> {
     let today_end = (now + beijing_offset) / 86400 * 86400 + 86400 - beijing_offset;
     let start_timestamp = today_end - 30 * 86400;
     let end_timestamp = today_end;
-    let client = build_reqwest_client().map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+    let client = build_reqwest_client().map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
     let url = format!(
-        "https://duckcoding.com/api/data/self?start_timestamp={}&end_timestamp={}",
-        start_timestamp, end_timestamp
+        "https://duckcoding.com/api/data/self?start_timestamp={start_timestamp}&end_timestamp={end_timestamp}"
     );
     let response = client
         .get(&url)
@@ -97,13 +96,13 @@ pub async fn get_usage_stats() -> Result<UsageStatsResult, String> {
         .header("New-Api-User", &global_config.user_id)
         .send()
         .await
-        .map_err(|e| format!("获取用量统计失败: {}", e))?;
+        .map_err(|e| format!("获取用量统计失败: {e}"))?;
     if !response.status().is_success() {
         let status = response.status();
         let error_text = response.text().await.unwrap_or_default();
         return Ok(UsageStatsResult {
             success: false,
-            message: format!("获取用量统计失败 ({}): {}", status, error_text),
+            message: format!("获取用量统计失败 ({status}): {error_text}"),
             data: vec![],
         });
     }
@@ -116,17 +115,14 @@ pub async fn get_usage_stats() -> Result<UsageStatsResult, String> {
     if !content_type.contains("application/json") {
         return Ok(UsageStatsResult {
             success: false,
-            message: format!(
-                "服务器返回了非JSON格式的响应 (Content-Type: {})",
-                content_type
-            ),
+            message: format!("服务器返回了非JSON格式的响应 (Content-Type: {content_type})"),
             data: vec![],
         });
     }
     let api_response: UsageApiResponse = response
         .json()
         .await
-        .map_err(|e| format!("解析响应失败: {}", e))?;
+        .map_err(|e| format!("解析响应失败: {e}"))?;
     if !api_response.success {
         return Ok(UsageStatsResult {
             success: false,
@@ -146,7 +142,7 @@ pub async fn get_user_quota() -> Result<UserQuotaResult, String> {
     apply_proxy_if_configured();
     let global_config =
         read_global_config()?.ok_or_else(|| "请先配置用户ID和系统访问令牌".to_string())?;
-    let client = build_reqwest_client().map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+    let client = build_reqwest_client().map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
     let url = "https://duckcoding.com/api/user/self";
     let response = client
         .get(url)
@@ -165,11 +161,11 @@ pub async fn get_user_quota() -> Result<UserQuotaResult, String> {
         .header("New-Api-User", &global_config.user_id)
         .send()
         .await
-        .map_err(|e| format!("获取用户信息失败: {}", e))?;
+        .map_err(|e| format!("获取用户信息失败: {e}"))?;
     if !response.status().is_success() {
         let status = response.status();
         let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("获取用户信息失败 ({}): {}", status, error_text));
+        return Err(format!("获取用户信息失败 ({status}): {error_text}"));
     }
     let content_type = response
         .headers()
@@ -179,14 +175,13 @@ pub async fn get_user_quota() -> Result<UserQuotaResult, String> {
         .unwrap_or_default();
     if !content_type.contains("application/json") {
         return Err(format!(
-            "服务器返回了非JSON格式的响应 (Content-Type: {})",
-            content_type
+            "服务器返回了非JSON格式的响应 (Content-Type: {content_type})"
         ));
     }
     let api_response: UserApiResponse = response
         .json()
         .await
-        .map_err(|e| format!("解析响应失败: {}", e))?;
+        .map_err(|e| format!("解析响应失败: {e}"))?;
     if !api_response.success {
         return Err(format!("API返回错误: {}", api_response.message));
     }

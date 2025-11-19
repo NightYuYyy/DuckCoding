@@ -74,13 +74,13 @@ fn restore_window_state<R: Runtime>(window: &WebviewWindow<R>) {
     }
 
     if let Err(e) = window.show() {
-        println!("Error showing window: {:?}", e);
+        println!("Error showing window: {e:?}");
     }
     if let Err(e) = window.unminimize() {
-        println!("Error unminimizing window: {:?}", e);
+        println!("Error unminimizing window: {e:?}");
     }
     if let Err(e) = window.set_focus() {
-        println!("Error setting focus: {:?}", e);
+        println!("Error setting focus: {e:?}");
     }
 
     #[cfg(target_os = "macos")]
@@ -101,7 +101,7 @@ fn restore_window_state<R: Runtime>(window: &WebviewWindow<R>) {
 fn hide_window_to_tray<R: Runtime>(window: &WebviewWindow<R>) {
     println!("Hiding window to system tray");
     if let Err(e) = window.hide() {
-        println!("Failed to hide window: {:?}", e);
+        println!("Failed to hide window: {e:?}");
     }
 
     #[cfg(target_os = "macos")]
@@ -141,7 +141,7 @@ fn main() {
 
             // 设置工作目录到项目根目录(跨平台支持)
             if let Ok(resource_dir) = app.path().resource_dir() {
-                println!("Resource dir: {:?}", resource_dir);
+                println!("Resource dir: {resource_dir:?}");
 
                 if cfg!(debug_assertions) {
                     // 开发模式: resource_dir 是 src-tauri/target/debug
@@ -152,7 +152,7 @@ fn main() {
                         .and_then(|p| p.parent()) // 项目根目录
                         .unwrap_or(&resource_dir);
 
-                    println!("Development mode, setting dir to: {:?}", project_root);
+                    println!("Development mode, setting dir to: {project_root:?}");
                     let _ = env::set_current_dir(project_root);
                 } else {
                     // 生产模式: 跨平台支持
@@ -169,7 +169,7 @@ fn main() {
                         // Linux: 通常在 /usr/share/appname 或类似位置
                         resource_dir.parent().unwrap_or(&resource_dir)
                     };
-                    println!("Production mode, setting dir to: {:?}", parent_dir);
+                    println!("Production mode, setting dir to: {parent_dir:?}");
                     let _ = env::set_current_dir(parent_dir);
                 }
             }
@@ -199,7 +199,7 @@ fn main() {
                     }
                 })
                 .on_tray_icon_event(move |_tray, event| {
-                    println!("Tray icon event received: {:?}", event);
+                    println!("Tray icon event received: {event:?}");
                     match event {
                         TrayIconEvent::Click {
                             button: MouseButton::Left,
@@ -227,8 +227,7 @@ fn main() {
                         api.prevent_close();
                         if let Err(err) = window_clone.emit(CLOSE_CONFIRM_EVENT, ()) {
                             println!(
-                                "Failed to emit close confirmation event, fallback to hiding: {:?}",
-                                err
+                                "Failed to emit close confirmation event, fallback to hiding: {err:?}"
                             );
                             hide_window_to_tray(&window_clone);
                         }
@@ -241,8 +240,7 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             println!(
-                "Secondary instance detected, args: {:?}, cwd: {}",
-                argv, cwd
+                "Secondary instance detected, args: {argv:?}, cwd: {cwd}"
             );
 
             if let Err(err) = app.emit(
@@ -252,7 +250,7 @@ fn main() {
                     cwd: cwd.clone(),
                 },
             ) {
-                println!("Failed to emit single-instance event: {:?}", err);
+                println!("Failed to emit single-instance event: {err:?}");
             }
 
             focus_main_window(app);

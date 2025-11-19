@@ -106,7 +106,7 @@ impl VersionService {
                 });
             }
             Err(e) => {
-                eprintln!("⚠️  镜像站 API 不可用: {}", e);
+                eprintln!("⚠️  镜像站 API 不可用: {e}");
             }
         }
 
@@ -151,7 +151,7 @@ impl VersionService {
                     mirror_is_stale,
                 )
             })
-            .ok_or_else(|| anyhow::anyhow!("工具 {} 不在镜像站 API 中", tool_id))
+            .ok_or_else(|| anyhow::anyhow!("工具 {tool_id} 不在镜像站 API 中"))
     }
 
     /// 从本地命令获取最新版本（npm registry）
@@ -274,7 +274,7 @@ impl VersionService {
             }
             Err(e) => {
                 // 镜像站不可用，逐个回退到本地检查（跳过镜像重试）
-                eprintln!("⚠️  镜像站 API 不可用，回退到本地检查: {}", e);
+                eprintln!("⚠️  镜像站 API 不可用，回退到本地检查: {e}");
                 for tool in &tools {
                     let installed_version = self.installer.get_installed_version(tool).await;
                     if let Ok(info) = self.check_version_local(tool, installed_version).await {

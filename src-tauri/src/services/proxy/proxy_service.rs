@@ -136,10 +136,10 @@ impl ProxyService {
                 let no_proxy = bypass_urls.join(",");
                 env::set_var("NO_PROXY", &no_proxy);
                 env::set_var("no_proxy", &no_proxy);
-                println!("Proxy bypass list: {}", no_proxy);
+                println!("Proxy bypass list: {no_proxy}");
             }
 
-            println!("Proxy enabled: {}", proxy_url);
+            println!("Proxy enabled: {proxy_url}");
         }
     }
 
@@ -160,7 +160,7 @@ impl ProxyService {
             config.proxy_password.as_ref(),
         ) {
             if !username.is_empty() && !password.is_empty() {
-                format!("{}:{}@", username, password)
+                format!("{username}:{password}@")
             } else {
                 String::new()
             }
@@ -176,7 +176,7 @@ impl ProxyService {
         };
 
         // 构建完整的代理 URL
-        Some(format!("{}://{}{}:{}", scheme, auth, host, port))
+        Some(format!("{scheme}://{auth}{host}:{port}"))
     }
 
     /// 清除代理环境变量

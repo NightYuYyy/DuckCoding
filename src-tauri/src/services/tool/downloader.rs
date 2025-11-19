@@ -54,7 +54,7 @@ impl FileDownloader {
             .get(url)
             .send()
             .await
-            .with_context(|| format!("Failed to start download from URL: {}", url))?;
+            .with_context(|| format!("Failed to start download from URL: {url}"))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -67,10 +67,7 @@ impl FileDownloader {
                 .unwrap_or_else(|_| "Unable to read error response".to_string());
 
             return Err(anyhow::anyhow!(
-                "Download failed from {}\nStatus: {}\nError details: {}",
-                url_str,
-                status,
-                error_text
+                "Download failed from {url_str}\nStatus: {status}\nError details: {error_text}"
             ));
         }
 
@@ -134,7 +131,7 @@ impl FileDownloader {
             Ok(response) => Ok(response.content_length()),
             Err(e) => {
                 // 如果HEAD请求失败，可能是服务器不支持HEAD请求，记录但不阻断下载
-                eprintln!("Warning: Failed to get file size with HEAD request: {}", e);
+                eprintln!("Warning: Failed to get file size with HEAD request: {e}");
                 Ok(None)
             }
         }

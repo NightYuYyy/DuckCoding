@@ -58,7 +58,7 @@ pub async fn start_transparent_proxy(
     // 读取全局配置
     let mut config = get_global_config()
         .await
-        .map_err(|e| format!("读取配置失败: {}", e))?
+        .map_err(|e| format!("读取配置失败: {e}"))?
         .ok_or_else(|| "全局配置不存在，请先配置用户信息".to_string())?;
     let original_config = config.clone();
 
@@ -85,22 +85,22 @@ pub async fn start_transparent_proxy(
             proxy_port,
             &local_api_key,
         )
-        .map_err(|e| format!("启用透明代理失败: {}", e))?;
+        .map_err(|e| format!("启用透明代理失败: {e}"))?;
     } else {
         // 已经备份过配置，只需确保当前配置指向本地代理
         TransparentProxyConfigService::update_config_to_proxy(&tool, proxy_port, &local_api_key)
-            .map_err(|e| format!("更新代理配置失败: {}", e))?;
+            .map_err(|e| format!("更新代理配置失败: {e}"))?;
     }
 
     // 从全局配置获取真实的 API 配置
     let (target_api_key, target_base_url) = TransparentProxyConfigService::get_real_config(&config)
-        .map_err(|e| format!("获取真实配置失败: {}", e))?;
+        .map_err(|e| format!("获取真实配置失败: {e}"))?;
 
     println!(
         "🔑 真实 API Key: {}...",
         &target_api_key[..4.min(target_api_key.len())]
     );
-    println!("🌐 真实 Base URL: {}", target_base_url);
+    println!("🌐 真实 Base URL: {target_base_url}");
 
     // 创建代理配置
     let proxy_config = ProxyConfig {
@@ -116,25 +116,21 @@ pub async fn start_transparent_proxy(
         if let Err(disable_err) =
             TransparentProxyConfigService::disable_transparent_proxy(&tool, &config)
         {
-            eprintln!(
-                "恢复 ClaudeCode 配置失败（代理启动错误后）: {}",
-                disable_err
-            );
+            eprintln!("恢复 ClaudeCode 配置失败（代理启动错误后）: {disable_err}");
         }
         if let Err(save_err) = save_global_config(original_config).await {
-            eprintln!("恢复全局配置失败（代理启动错误后）: {}", save_err);
+            eprintln!("恢复全局配置失败（代理启动错误后）: {save_err}");
         }
-        return Err(format!("启动透明代理服务失败: {}", start_err));
+        return Err(format!("启动透明代理服务失败: {start_err}"));
     }
 
     // 保存更新后的全局配置
     save_global_config(config.clone())
         .await
-        .map_err(|e| format!("保存配置失败: {}", e))?;
+        .map_err(|e| format!("保存配置失败: {e}"))?;
 
     Ok(format!(
-        "✅ 透明代理已启动\n监听端口: {}\nClaudeCode 请求将自动转发",
-        proxy_port
+        "✅ 透明代理已启动\n监听端口: {proxy_port}\nClaudeCode 请求将自动转发"
     ))
 }
 
@@ -145,7 +141,7 @@ pub async fn stop_transparent_proxy(
     // 读取全局配置
     let config = get_global_config()
         .await
-        .map_err(|e| format!("读取配置失败: {}", e))?
+        .map_err(|e| format!("读取配置失败: {e}"))?
         .ok_or_else(|| "全局配置不存在".to_string())?;
 
     // 停止代理服务
@@ -153,13 +149,13 @@ pub async fn stop_transparent_proxy(
     service
         .stop()
         .await
-        .map_err(|e| format!("停止透明代理服务失败: {}", e))?;
+        .map_err(|e| format!("停止透明代理服务失败: {e}"))?;
 
     // 恢复 ClaudeCode 配置
     if config.transparent_proxy_real_api_key.is_some() {
         let tool = Tool::claude_code();
         TransparentProxyConfigService::disable_transparent_proxy(&tool, &config)
-            .map_err(|e| format!("恢复配置失败: {}", e))?;
+            .map_err(|e| format!("恢复配置失败: {e}"))?;
     }
 
     Ok("✅ 透明代理已停止\nClaudeCode 配置已恢复".to_string())
@@ -190,7 +186,7 @@ pub async fn update_transparent_proxy_config(
     // 读取全局配置
     let mut config = get_global_config()
         .await
-        .map_err(|e| format!("读取配置失败: {}", e))?
+        .map_err(|e| format!("读取配置失败: {e}"))?
         .ok_or_else(|| "全局配置不存在".to_string())?;
 
     if !config.transparent_proxy_enabled {
@@ -210,12 +206,12 @@ pub async fn update_transparent_proxy_config(
         &new_api_key,
         &new_base_url,
     )
-    .map_err(|e| format!("更新配置失败: {}", e))?;
+    .map_err(|e| format!("更新配置失败: {e}"))?;
 
     // 保存更新后的全局配置
     save_global_config(config.clone())
         .await
-        .map_err(|e| format!("保存配置失败: {}", e))?;
+        .map_err(|e| format!("保存配置失败: {e}"))?;
 
     // 创建新的代理配置
     let proxy_config = ProxyConfig {
@@ -229,14 +225,14 @@ pub async fn update_transparent_proxy_config(
     service
         .update_config(proxy_config)
         .await
-        .map_err(|e| format!("更新代理配置失败: {}", e))?;
+        .map_err(|e| format!("更新代理配置失败: {e}"))?;
 
     println!("🔄 透明代理配置已更新:");
     println!(
         "   API Key: {}...",
         &new_api_key[..4.min(new_api_key.len())]
     );
-    println!("   Base URL: {}", new_base_url);
+    println!("   Base URL: {new_base_url}");
 
     Ok("✅ 透明代理配置已更新，无需重启".to_string())
 }
@@ -264,7 +260,7 @@ pub async fn test_proxy_request(
             (&proxy_config.username, &proxy_config.password)
         {
             if !username.is_empty() && !password.is_empty() {
-                format!("{}:{}@", username, password)
+                format!("{username}:{password}@")
             } else {
                 String::new()
             }
@@ -294,13 +290,13 @@ pub async fn test_proxy_request(
                 .proxy(proxy)
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
-                .map_err(|e| format!("Failed to build client with proxy: {}", e))?,
+                .map_err(|e| format!("Failed to build client with proxy: {e}"))?,
             Err(e) => {
                 return Ok(TestProxyResult {
                     success: false,
                     status: 0,
                     url: None,
-                    error: Some(format!("Invalid proxy URL: {}", e)),
+                    error: Some(format!("Invalid proxy URL: {e}")),
                 });
             }
         }
@@ -309,7 +305,7 @@ pub async fn test_proxy_request(
         reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
-            .map_err(|e| format!("Failed to build client: {}", e))?
+            .map_err(|e| format!("Failed to build client: {e}"))?
     };
 
     match client.get(&test_url).send().await {

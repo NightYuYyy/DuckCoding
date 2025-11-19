@@ -162,11 +162,10 @@ impl Tool {
             .unwrap_or("config");
 
         if ext.is_empty() {
-            self.config_dir
-                .join(format!("{}.{}", basename, profile_name))
+            self.config_dir.join(format!("{basename}.{profile_name}"))
         } else {
             self.config_dir
-                .join(format!("{}.{}.{}", basename, profile_name, ext))
+                .join(format!("{basename}.{profile_name}.{ext}"))
         }
     }
 }

@@ -68,7 +68,7 @@ impl UpdateService {
     /// 从镜像站获取更新信息
     async fn fetch_update_info(&self) -> Result<UpdateInfo> {
         let client = crate::http_client::build_client()
-            .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
+            .map_err(|e| anyhow!("Failed to create HTTP client: {e}"))?;
 
         let response = client
             .get("https://mirror.duckcoding.com/api/v1/update")
@@ -188,8 +188,7 @@ impl UpdateService {
         let current_status = self.status.read().await.clone();
         if !self.can_download().await {
             return Err(anyhow!(
-                "Cannot download update in current state: {:?}",
-                current_status
+                "Cannot download update in current state: {current_status:?}"
             ));
         }
 
@@ -246,7 +245,7 @@ impl UpdateService {
                         });
                     }
                     DownloadEvent::Failed(error) => {
-                        eprintln!("Download failed: {}", error);
+                        eprintln!("Download failed: {error}");
                         // 注意：这里不能使用await，需要在异步上下文中处理
                         progress_callback(DownloadProgress {
                             downloaded_bytes: 0,
@@ -298,7 +297,7 @@ impl UpdateService {
                 Ok(())
             }
             Err(e) => {
-                *self.status.write().await = UpdateStatus::Failed(format!("Backup failed: {}", e));
+                *self.status.write().await = UpdateStatus::Failed(format!("Backup failed: {e}"));
                 Err(e)
             }
         }
@@ -439,7 +438,7 @@ impl UpdateService {
         // 1. 验证文件存在
         let file_path = std::path::Path::new(update_path);
         if !file_path.exists() {
-            return Err(anyhow!("Update file not found: {}", update_path));
+            return Err(anyhow!("Update file not found: {update_path}"));
         }
 
         // 2. 获取文件信息
@@ -448,10 +447,7 @@ impl UpdateService {
             .context("Failed to read update file metadata")?;
 
         let file_size = metadata.len();
-        println!(
-            "开始安装更新文件: {} (大小: {} bytes)",
-            update_path, file_size
-        );
+        println!("开始安装更新文件: {update_path} (大小: {file_size} bytes)");
 
         // 3. 根据文件扩展名执行安装
         let file_name = file_path
@@ -463,7 +459,7 @@ impl UpdateService {
         {
             // Windows 处理
             if file_name.ends_with(".exe") {
-                println!("启动 Windows .exe 安装程序: {}", update_path);
+                println!("启动 Windows .exe 安装程序: {update_path}");
 
                 // 直接启动 EXE 安装程序，不使用任何静默参数，让用户看到标准的安装界面
                 match tokio::process::Command::new(update_path).spawn() {
@@ -479,13 +475,12 @@ impl UpdateService {
                                 } else {
                                     let exit_code = status.code().unwrap_or(-1);
                                     return Err(anyhow!(
-                                        "EXE installer failed with exit code: {}",
-                                        exit_code
+                                        "EXE installer failed with exit code: {exit_code}"
                                     ));
                                 }
                             }
                             Err(e) => {
-                                return Err(anyhow!("Failed to wait for EXE installer: {}", e));
+                                return Err(anyhow!("Failed to wait for EXE installer: {e}"));
                             }
                         }
                     }
@@ -504,8 +499,7 @@ impl UpdateService {
                             }
                             Err(e) => {
                                 return Err(anyhow!(
-                                    "Failed to start EXE installer and open file manager: {}",
-                                    e
+                                    "Failed to start EXE installer and open file manager: {e}"
                                 ));
                             }
                         }
@@ -515,7 +509,7 @@ impl UpdateService {
                 println!("执行 Windows MSI 安装程序");
 
                 // 尝试多种 MSI 安装方式
-                let install_methods = vec![
+                let install_methods = [
                     vec!["/i", update_path, "/quiet", "/norestart"], // 静默安装
                     vec!["/i", update_path, "/passive", "/norestart"], // 被动安装（显示进度）
                     vec!["/i", update_path, "/qn", "/norestart"],    // 无界面安装
@@ -539,21 +533,21 @@ impl UpdateService {
                                         i + 1,
                                         status.code()
                                     );
-                                    println!("{}", error_msg);
+                                    println!("{error_msg}");
                                     last_error = Some(anyhow!(error_msg));
                                 }
                             }
                             Err(e) => {
                                 let error_msg =
                                     format!("MSI installer (方法 {}) wait failed: {}", i + 1, e);
-                                println!("{}", error_msg);
+                                println!("{error_msg}");
                                 last_error = Some(anyhow!(error_msg));
                             }
                         },
                         Err(e) => {
                             let error_msg =
                                 format!("Failed to start MSI installer (方法 {}): {}", i + 1, e);
-                            println!("{}", error_msg);
+                            println!("{error_msg}");
                             last_error = Some(anyhow!(error_msg));
                         }
                     }
@@ -578,7 +572,7 @@ impl UpdateService {
                 }
             } else {
                 // 其他格式，尝试打开文件资源管理器
-                println!("尝试打开文件资源管理器: {}", update_path);
+                println!("尝试打开文件资源管理器: {update_path}");
                 tokio::process::Command::new("explorer")
                     .arg("/select,")
                     .arg(update_path)
@@ -698,7 +692,7 @@ impl UpdateService {
         Ok(())
     }
 
-    async fn restore_from_backup(&self, _backup_dir: &PathBuf) -> Result<()> {
+    async fn restore_from_backup(&self, _backup_dir: &std::path::Path) -> Result<()> {
         // 从备份恢复的具体实现
         Ok(())
     }

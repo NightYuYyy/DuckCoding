@@ -92,7 +92,7 @@ impl CommandExecutor {
         .unwrap_or_else(|e| CommandResult {
             success: false,
             stdout: String::new(),
-            stderr: format!("任务执行失败: {}", e),
+            stderr: format!("任务执行失败: {e}"),
             exit_code: None,
         })
     }
@@ -100,9 +100,9 @@ impl CommandExecutor {
     /// 检查命令是否存在
     pub fn command_exists(&self, command: &str) -> bool {
         let check_cmd = if self.platform.is_windows {
-            format!("where {}", command)
+            format!("where {command}")
         } else {
-            format!("which {}", command)
+            format!("which {command}")
         };
 
         self.execute(&check_cmd).success
@@ -111,9 +111,9 @@ impl CommandExecutor {
     /// 检查命令是否存在（异步）
     pub async fn command_exists_async(&self, command: &str) -> bool {
         let check_cmd = if self.platform.is_windows {
-            format!("where {}", command)
+            format!("where {command}")
         } else {
-            format!("which {}", command)
+            format!("which {command}")
         };
 
         self.execute_async(&check_cmd).await.success

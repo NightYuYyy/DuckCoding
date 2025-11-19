@@ -19,7 +19,7 @@ impl UpdateServiceState {
         let service_clone = service.clone();
         tauri::async_runtime::spawn(async move {
             if let Err(e) = service_clone.initialize().await {
-                eprintln!("Failed to initialize update service: {}", e);
+                eprintln!("Failed to initialize update service: {e}");
             }
         });
         Self { service }
@@ -35,7 +35,7 @@ pub async fn check_for_app_updates(
         .service
         .check_for_updates()
         .await
-        .map_err(|e| format!("Failed to check for updates: {}", e))
+        .map_err(|e| format!("Failed to check for updates: {e}"))
 }
 
 /// 下载应用更新
@@ -57,7 +57,7 @@ pub async fn download_app_update(
             let _ = window_clone.emit("update-download-progress", &progress);
         })
         .await
-        .map_err(|e| format!("Failed to download update: {}", e))
+        .map_err(|e| format!("Failed to download update: {e}"))
 }
 
 /// 安装应用更新
@@ -70,7 +70,7 @@ pub async fn install_app_update(
         .service
         .install_update(&update_path)
         .await
-        .map_err(|e| format!("Failed to install update: {}", e))
+        .map_err(|e| format!("Failed to install update: {e}"))
 }
 
 /// 获取应用更新状态
@@ -88,7 +88,7 @@ pub async fn rollback_app_update(state: State<'_, UpdateServiceState>) -> Result
         .service
         .rollback_update()
         .await
-        .map_err(|e| format!("Failed to rollback update: {}", e))
+        .map_err(|e| format!("Failed to rollback update: {e}"))
 }
 
 /// 获取当前应用版本

@@ -23,7 +23,7 @@ pub fn build_http_client(config: Option<&GlobalConfig>) -> AppResult<Client> {
             let proxy_url = build_proxy_url(cfg)?;
             let proxy =
                 reqwest::Proxy::all(&proxy_url).map_err(|e| AppError::ProxyConfigError {
-                    reason: format!("代理 URL 无效: {}", e),
+                    reason: format!("代理 URL 无效: {e}"),
                 })?;
 
             builder = builder.proxy(proxy);
@@ -68,7 +68,7 @@ fn build_proxy_url(config: &GlobalConfig) -> AppResult<String> {
         (&config.proxy_username, &config.proxy_password)
     {
         if !username.is_empty() && !password.is_empty() {
-            format!("{}:{}@", username, password)
+            format!("{username}:{password}@")
         } else {
             String::new()
         }
@@ -84,7 +84,7 @@ fn build_proxy_url(config: &GlobalConfig) -> AppResult<String> {
         _ => "http",
     };
 
-    Ok(format!("{}://{}{}:{}", scheme, auth, host, port))
+    Ok(format!("{scheme}://{auth}{host}:{port}"))
 }
 
 #[cfg(test)]

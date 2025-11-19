@@ -19,22 +19,21 @@ pub fn build_client() -> Result<Client, String> {
                 builder = builder.proxy(proxy);
                 builder
                     .build()
-                    .map_err(|e| format!("Failed to build reqwest client: {}", e))
+                    .map_err(|e| format!("Failed to build reqwest client: {e}"))
             }
             Err(e) => {
                 // 为 SOCKS5 提供更友好的错误说明
                 if proxy_url.starts_with("socks5") {
                     return Err(format!(
-                        "SOCKS5 代理初始化失败：{}。请确认已启用 reqwest 的 socks 特性并使用有效的 URL；若需要远程 DNS 解析，建议使用 socks5h://",
-                        e
+                        "SOCKS5 代理初始化失败：{e}。请确认已启用 reqwest 的 socks 特性并使用有效的 URL；若需要远程 DNS 解析，建议使用 socks5h://"
                     ));
                 }
-                Err(format!("Invalid proxy URL: {}", e))
+                Err(format!("Invalid proxy URL: {e}"))
             }
         }
     } else {
         builder
             .build()
-            .map_err(|e| format!("Failed to build reqwest client: {}", e))
+            .map_err(|e| format!("Failed to build reqwest client: {e}"))
     }
 }

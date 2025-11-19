@@ -9,7 +9,7 @@ pub fn config_dir() -> Result<PathBuf, String> {
     let config_dir = home_dir.join(".duckcoding");
     if !config_dir.exists() {
         fs::create_dir_all(&config_dir)
-            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+            .map_err(|e| format!("Failed to create config directory: {e}"))?;
     }
     Ok(config_dir)
 }
@@ -27,9 +27,9 @@ pub fn read_global_config() -> Result<Option<GlobalConfig>, String> {
     }
 
     let content =
-        fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;
+        fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {e}"))?;
     let config: GlobalConfig =
-        serde_json::from_str(&content).map_err(|e| format!("Failed to parse config: {}", e))?;
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse config: {e}"))?;
 
     Ok(Some(config))
 }
@@ -38,9 +38,9 @@ pub fn read_global_config() -> Result<Option<GlobalConfig>, String> {
 pub fn write_global_config(config: &GlobalConfig) -> Result<(), String> {
     let config_path = global_config_path()?;
     let json = serde_json::to_string_pretty(config)
-        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+        .map_err(|e| format!("Failed to serialize config: {e}"))?;
 
-    fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {}", e))?;
+    fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {e}"))?;
 
     #[cfg(unix)]
     {

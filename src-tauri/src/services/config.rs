@@ -201,7 +201,7 @@ impl ConfigService {
             let content = fs::read_to_string(&config_path)?;
             content
                 .parse::<toml_edit::DocumentMut>()
-                .map_err(|err| anyhow!("解析 Codex config.toml 失败: {}", err))?
+                .map_err(|err| anyhow!("解析 Codex config.toml 失败: {err}"))?
         } else {
             toml_edit::DocumentMut::new()
         };
@@ -237,7 +237,7 @@ impl ConfigService {
         let base_url_with_v1 = if normalized_base.ends_with("/v1") {
             normalized_base.to_string()
         } else {
-            format!("{}/v1", normalized_base)
+            format!("{normalized_base}/v1")
         };
 
         // 增量更新 model_providers 表
@@ -271,10 +271,7 @@ impl ConfigService {
             provider_table.insert("wire_api", toml_edit::value("responses"));
             provider_table.insert("requires_openai_auth", toml_edit::value(true));
         } else {
-            anyhow::bail!(
-                "解析 codex 配置失败：无法写入 model_providers.{}",
-                provider_key
-            );
+            anyhow::bail!("解析 codex 配置失败：无法写入 model_providers.{provider_key}");
         }
 
         // 写入 config.toml（保留注释和格式）
@@ -343,10 +340,7 @@ impl ConfigService {
         }
 
         // 写入 .env
-        let env_content: Vec<String> = env_vars
-            .iter()
-            .map(|(k, v)| format!("{}={}", k, v))
-            .collect();
+        let env_content: Vec<String> = env_vars.iter().map(|(k, v)| format!("{k}={v}")).collect();
         fs::write(&env_path, env_content.join("\n") + "\n")?;
 
         // 读取并更新 settings.json
@@ -436,10 +430,8 @@ impl ConfigService {
         let config_path = tool.config_dir.join("config.toml");
         let auth_path = tool.config_dir.join("auth.json");
 
-        let backup_config = tool
-            .config_dir
-            .join(format!("config.{}.toml", profile_name));
-        let backup_auth = tool.config_dir.join(format!("auth.{}.json", profile_name));
+        let backup_config = tool.config_dir.join(format!("config.{profile_name}.toml"));
+        let backup_auth = tool.config_dir.join(format!("auth.{profile_name}.json"));
 
         // 读取 auth.json 中的 API Key
         let api_key = if auth_path.exists() {
@@ -500,7 +492,7 @@ impl ConfigService {
 
     fn backup_gemini(tool: &Tool, profile_name: &str) -> Result<()> {
         let env_path = tool.config_dir.join(".env");
-        let backup_env = tool.config_dir.join(format!(".env.{}", profile_name));
+        let backup_env = tool.config_dir.join(format!(".env.{profile_name}"));
 
         if !env_path.exists() {
             anyhow::bail!("配置文件不存在，无法备份");
@@ -530,8 +522,7 @@ impl ConfigService {
 
         // 只保存 API 相关字段
         let backup_content = format!(
-            "GEMINI_API_KEY={}\nGOOGLE_GEMINI_BASE_URL={}\nGEMINI_MODEL={}\n",
-            api_key, base_url, model
+            "GEMINI_API_KEY={api_key}\nGOOGLE_GEMINI_BASE_URL={base_url}\nGEMINI_MODEL={model}\n"
         );
 
         fs::write(&backup_env, backup_content)?;
@@ -654,7 +645,7 @@ impl ConfigService {
         let active_path = tool.config_dir.join(&tool.config_file);
 
         if !backup_path.exists() {
-            anyhow::bail!("配置文件不存在: {:?}", backup_path);
+            anyhow::bail!("配置文件不存在: {backup_path:?}");
         }
 
         // 读取备份的 API 字段（兼容新旧格式）
@@ -724,16 +715,14 @@ impl ConfigService {
     }
 
     fn activate_codex(tool: &Tool, profile_name: &str) -> Result<()> {
-        let backup_config = tool
-            .config_dir
-            .join(format!("config.{}.toml", profile_name));
-        let backup_auth = tool.config_dir.join(format!("auth.{}.json", profile_name));
+        let backup_config = tool.config_dir.join(format!("config.{profile_name}.toml"));
+        let backup_auth = tool.config_dir.join(format!("auth.{profile_name}.json"));
 
         let active_config = tool.config_dir.join("config.toml");
         let active_auth = tool.config_dir.join("auth.json");
 
         if !backup_auth.exists() {
-            anyhow::bail!("配置文件不存在: {:?}", backup_auth);
+            anyhow::bail!("配置文件不存在: {backup_auth:?}");
         }
 
         // 读取备份的 API Key
@@ -816,11 +805,11 @@ impl ConfigService {
     }
 
     fn activate_gemini(tool: &Tool, profile_name: &str) -> Result<()> {
-        let backup_env = tool.config_dir.join(format!(".env.{}", profile_name));
+        let backup_env = tool.config_dir.join(format!(".env.{profile_name}"));
         let active_env = tool.config_dir.join(".env");
 
         if !backup_env.exists() {
-            anyhow::bail!("配置文件不存在: {:?}", backup_env);
+            anyhow::bail!("配置文件不存在: {backup_env:?}");
         }
 
         // 读取备份的 API 字段
@@ -865,10 +854,7 @@ impl ConfigService {
         env_vars.insert("GEMINI_MODEL".to_string(), backup_model);
 
         // 写回 .env（保留其他字段）
-        let env_content: Vec<String> = env_vars
-            .iter()
-            .map(|(k, v)| format!("{}={}", k, v))
-            .collect();
+        let env_content: Vec<String> = env_vars.iter().map(|(k, v)| format!("{k}={v}")).collect();
         fs::write(&active_env, env_content.join("\n") + "\n")?;
 
         Ok(())
@@ -884,10 +870,8 @@ impl ConfigService {
                 }
             }
             "codex" => {
-                let backup_config = tool
-                    .config_dir
-                    .join(format!("config.{}.toml", profile_name));
-                let backup_auth = tool.config_dir.join(format!("auth.{}.json", profile_name));
+                let backup_config = tool.config_dir.join(format!("config.{profile_name}.toml"));
+                let backup_auth = tool.config_dir.join(format!("auth.{profile_name}.json"));
 
                 if backup_config.exists() {
                     fs::remove_file(backup_config)?;
@@ -897,7 +881,7 @@ impl ConfigService {
                 }
             }
             "gemini-cli" => {
-                let backup_env = tool.config_dir.join(format!(".env.{}", profile_name));
+                let backup_env = tool.config_dir.join(format!(".env.{profile_name}"));
 
                 if backup_env.exists() {
                     fs::remove_file(backup_env)?;
@@ -925,7 +909,7 @@ impl ConfigService {
         }
 
         let settings: Value = serde_json::from_str(&content)
-            .map_err(|err| anyhow!("解析 Claude Code 配置失败: {}", err))?;
+            .map_err(|err| anyhow!("解析 Claude Code 配置失败: {err}"))?;
 
         Ok(settings)
     }
@@ -978,7 +962,7 @@ impl ConfigService {
             let content =
                 fs::read_to_string(&config_path).context("读取 Codex config.toml 失败")?;
             let toml_value: toml::Value = toml::from_str(&content)
-                .map_err(|err| anyhow!("解析 Codex config.toml 失败: {}", err))?;
+                .map_err(|err| anyhow!("解析 Codex config.toml 失败: {err}"))?;
             serde_json::to_value(toml_value).context("转换 Codex config.toml 为 JSON 失败")?
         } else {
             Value::Object(Map::new())
@@ -987,7 +971,7 @@ impl ConfigService {
         let auth_token = if auth_path.exists() {
             let content = fs::read_to_string(&auth_path).context("读取 Codex auth.json 失败")?;
             let auth: Value = serde_json::from_str(&content)
-                .map_err(|err| anyhow!("解析 Codex auth.json 失败: {}", err))?;
+                .map_err(|err| anyhow!("解析 Codex auth.json 失败: {err}"))?;
             auth.get("OPENAI_API_KEY")
                 .and_then(|s| s.as_str().map(|s| s.to_string()))
         } else {
@@ -1016,7 +1000,7 @@ impl ConfigService {
                 fs::read_to_string(&config_path).context("读取 Codex config.toml 失败")?;
             content
                 .parse::<DocumentMut>()
-                .map_err(|err| anyhow!("解析 Codex config.toml 失败: {}", err))?
+                .map_err(|err| anyhow!("解析 Codex config.toml 失败: {err}"))?
         } else {
             DocumentMut::new()
         };
@@ -1024,7 +1008,7 @@ impl ConfigService {
         let new_toml_string = toml::to_string(config).context("序列化 Codex config 失败")?;
         let new_doc = new_toml_string
             .parse::<DocumentMut>()
-            .map_err(|err| anyhow!("解析待写入 Codex 配置失败: {}", err))?;
+            .map_err(|err| anyhow!("解析待写入 Codex 配置失败: {err}"))?;
 
         merge_toml_tables(existing_doc.as_table_mut(), new_doc.as_table());
 
@@ -1090,7 +1074,7 @@ impl ConfigService {
                 Value::Object(Map::new())
             } else {
                 serde_json::from_str(&content)
-                    .map_err(|err| anyhow!("解析 Gemini CLI 配置失败: {}", err))?
+                    .map_err(|err| anyhow!("解析 Gemini CLI 配置失败: {err}"))?
             }
         } else {
             Value::Object(Map::new())
