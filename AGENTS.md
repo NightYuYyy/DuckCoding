@@ -62,3 +62,4 @@ last-updated: 2025-11-18
 - UI 相关的托盘/窗口操作集中在 `src-tauri/src/ui/*`，其它模块如需最小化到托盘请调用 `ui::hide_window_to_tray` 等封装方法。
 - 前端 ToolConfigManager 拆成 `src/components/tool-config/{Fields,types,utils}.tsx`，其中 `Fields` 负责 Schema 渲染控件，`types` 提供字段/枚举定义，`utils` 负责 JSON Schema 解析与 diff 计算，杜绝单文件超 1k 行。
 - 统计页对失败请求提供 Alert + 便捷重试入口，凭证变化会重置失败状态；配置/安装 hooks 会在执行前刷新最新 profile、判空 `navigator` 并在卸载时释放定时器，避免陈旧状态和内存泄露。
+- 更新检查改成事件驱动：`trigger_check_update` 会触发 `update-available` / `update-not-found`，托盘菜单、启动自动检查、About 页面与全局 `UpdateDialog` 共用同一套流程，前端监听事件后直接唤起弹窗。
