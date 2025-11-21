@@ -137,14 +137,17 @@ export function useMultiToolProxy() {
   }, [globalConfig, toolConfigs]);
 
   // 生成代理 API Key
-  const generateApiKey = useCallback((toolId: string) => {
-    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = `dc-${toolId.replace('-', '')}-`;
-    for (let i = 0; i < 24; i++) {
-      result += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    updateToolConfig(toolId, { local_api_key: result });
-  }, [updateToolConfig]);
+  const generateApiKey = useCallback(
+    (toolId: string) => {
+      const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = `dc-${toolId.replace('-', '')}-`;
+      for (let i = 0; i < 24; i++) {
+        result += charset.charAt(Math.floor(Math.random() * charset.length));
+      }
+      updateToolConfig(toolId, { local_api_key: result });
+    },
+    [updateToolConfig],
+  );
 
   // 启动指定工具的代理
   const handleStartToolProxy = useCallback(

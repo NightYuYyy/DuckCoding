@@ -9,9 +9,9 @@ use std::collections::HashMap;
 pub struct ToolProxyConfig {
     pub enabled: bool,
     pub port: u16,
-    pub local_api_key: Option<String>,    // 保护密钥
-    pub real_api_key: Option<String>,     // 备份的真实 API Key
-    pub real_base_url: Option<String>,    // 备份的真实 Base URL
+    pub local_api_key: Option<String>,       // 保护密钥
+    pub real_api_key: Option<String>,        // 备份的真实 API Key
+    pub real_base_url: Option<String>,       // 备份的真实 Base URL
     pub real_model_provider: Option<String>, // 备份的 model_provider (Codex 专用)
     pub allow_public: bool,
 }

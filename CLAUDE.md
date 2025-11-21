@@ -71,6 +71,7 @@ last-updated: 2025-11-18
 ### 透明代理扩展指南
 
 添加新工具支持需要：
+
 1. 在 `services/proxy/headers/` 实现 `HeadersProcessor` trait
 2. 在 `services/proxy/headers/mod.rs` 的 `create_headers_processor` 工厂函数中注册
 3. 在 `models/tool.rs` 添加工具定义（如已存在则跳过）

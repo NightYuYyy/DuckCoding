@@ -55,38 +55,42 @@ impl TransparentProxyConfigService {
 
     /// 禁用透明代理 - 恢复真实配置到工具
     pub fn disable_transparent_proxy(tool: &Tool, global_config: &GlobalConfig) -> Result<()> {
-        let (real_api_key, real_base_url, real_model_provider) = if let Some(proxy_config) =
-            global_config.get_proxy_config(&tool.id)
-        {
-            let api_key = proxy_config
-                .real_api_key
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("未找到 {} 保存的真实 API Key", tool.id))?;
-            let base_url = proxy_config
-                .real_base_url
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("未找到 {} 保存的真实 Base URL", tool.id))?;
-            let model_provider = proxy_config.real_model_provider.clone();
-            (api_key.clone(), base_url.clone(), model_provider)
-        } else {
-            // 兼容旧字段（仅 claude-code）
-            if tool.id == "claude-code" {
-                let api_key = global_config
-                    .transparent_proxy_real_api_key
+        let (real_api_key, real_base_url, real_model_provider) =
+            if let Some(proxy_config) = global_config.get_proxy_config(&tool.id) {
+                let api_key = proxy_config
+                    .real_api_key
                     .as_ref()
-                    .ok_or_else(|| anyhow::anyhow!("未找到保存的真实 API Key"))?;
-                let base_url = global_config
-                    .transparent_proxy_real_base_url
+                    .ok_or_else(|| anyhow::anyhow!("未找到 {} 保存的真实 API Key", tool.id))?;
+                let base_url = proxy_config
+                    .real_base_url
                     .as_ref()
-                    .ok_or_else(|| anyhow::anyhow!("未找到保存的真实 Base URL"))?;
-                (api_key.clone(), base_url.clone(), None)
+                    .ok_or_else(|| anyhow::anyhow!("未找到 {} 保存的真实 Base URL", tool.id))?;
+                let model_provider = proxy_config.real_model_provider.clone();
+                (api_key.clone(), base_url.clone(), model_provider)
             } else {
-                anyhow::bail!("未找到 {} 的代理配置", tool.id);
-            }
-        };
+                // 兼容旧字段（仅 claude-code）
+                if tool.id == "claude-code" {
+                    let api_key = global_config
+                        .transparent_proxy_real_api_key
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("未找到保存的真实 API Key"))?;
+                    let base_url = global_config
+                        .transparent_proxy_real_base_url
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("未找到保存的真实 Base URL"))?;
+                    (api_key.clone(), base_url.clone(), None)
+                } else {
+                    anyhow::bail!("未找到 {} 的代理配置", tool.id);
+                }
+            };
 
         // 恢复真实配置
-        Self::write_real_config_with_provider(tool, &real_api_key, &real_base_url, real_model_provider.as_deref())?;
+        Self::write_real_config_with_provider(
+            tool,
+            &real_api_key,
+            &real_base_url,
+            real_model_provider.as_deref(),
+        )?;
 
         println!("✅ {} 透明代理已禁用，配置已恢复", tool.id);
 
@@ -198,7 +202,9 @@ impl TransparentProxyConfigService {
     ) -> Result<()> {
         match tool.id.as_str() {
             "claude-code" => Self::write_claude_config(tool, api_key, base_url),
-            "codex" => Self::write_codex_config_with_provider(tool, api_key, base_url, model_provider),
+            "codex" => {
+                Self::write_codex_config_with_provider(tool, api_key, base_url, model_provider)
+            }
             "gemini-cli" => Self::write_gemini_config(tool, api_key, base_url),
             _ => anyhow::bail!("不支持的工具: {}", tool.id),
         }
@@ -316,7 +322,10 @@ impl TransparentProxyConfigService {
             .and_then(|p| p.get("base_url"))
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                anyhow::anyhow!("Codex config.toml 中未找到 model_providers.{}.base_url", provider)
+                anyhow::anyhow!(
+                    "Codex config.toml 中未找到 model_providers.{}.base_url",
+                    provider
+                )
             })?
             .to_string();
 

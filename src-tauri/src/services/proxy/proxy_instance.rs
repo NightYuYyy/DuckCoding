@@ -265,7 +265,7 @@ async fn handle_request_inner(
         .as_ref()
         .unwrap()
         .trim_end_matches('/');
-    
+
     // 如果 base_url 以 /v1 结尾，且 path 以 /v1 开头，则去掉 path 中的 /v1
     // 这是因为 Codex 的配置文件要求 base_url 包含 /v1，
     // 但 Codex 发送请求时也会带上 /v1 前缀
@@ -276,7 +276,6 @@ async fn handle_request_inner(
     };
 
     let target_url = format!("{}{}{}", base, adjusted_path, query);
-
 
     // 回环检测
     let loop_urls = vec![

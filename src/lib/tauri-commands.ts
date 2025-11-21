@@ -53,9 +53,7 @@ export interface GlobalConfig {
   transparent_proxy_real_api_key?: string;
   transparent_proxy_real_base_url?: string;
   // 多工具透明代理配置（新架构）
-  proxy_configs?: {
-    [toolId: string]: ToolProxyConfig;
-  };
+  proxy_configs?: Record<string, ToolProxyConfig>;
 }
 
 export interface GenerateApiKeyResult {
@@ -352,9 +350,7 @@ export interface TransparentProxyStatus {
 }
 
 // 多工具代理状态映射
-export type AllProxyStatus = {
-  [toolId: string]: TransparentProxyStatus;
-};
+export type AllProxyStatus = Record<string, TransparentProxyStatus>;
 
 export async function startTransparentProxy(): Promise<string> {
   return await invoke<string>('start_transparent_proxy');

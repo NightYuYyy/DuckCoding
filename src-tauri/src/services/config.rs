@@ -485,29 +485,18 @@ impl ConfigService {
                             current_provider_name, profile_name
                         );
                         let mut backup_providers = toml_edit::Table::new();
-                        backup_providers.insert(
-                            current_provider_name,
-                            current_provider.clone(),
-                        );
-                        backup_doc.insert(
-                            "model_providers",
-                            toml_edit::Item::Table(backup_providers),
-                        );
+                        backup_providers.insert(current_provider_name, current_provider.clone());
+                        backup_doc
+                            .insert("model_providers", toml_edit::Item::Table(backup_providers));
                     } else {
-                        anyhow::bail!(
-                            "未找到 model_provider '{}' 的配置",
-                            current_provider_name
-                        );
+                        anyhow::bail!("未找到 model_provider '{}' 的配置", current_provider_name);
                     }
                 } else {
                     anyhow::bail!("配置文件缺少 model_providers 表");
                 }
 
                 // 保存当前的 model_provider 选择
-                backup_doc.insert(
-                    "model_provider",
-                    toml_edit::value(current_provider_name),
-                );
+                backup_doc.insert("model_provider", toml_edit::value(current_provider_name));
 
                 fs::write(&backup_config, backup_doc.to_string())?;
             }
@@ -833,7 +822,9 @@ impl ConfigService {
                                     if let Some(active_provider) =
                                         active_providers.get_mut(key).and_then(|p| p.as_table_mut())
                                     {
-                                        if let Some(base_url) = backup_provider_table.get("base_url") {
+                                        if let Some(base_url) =
+                                            backup_provider_table.get("base_url")
+                                        {
                                             active_provider.insert("base_url", base_url.clone());
                                         }
                                     }

@@ -2,6 +2,7 @@
 agent: Codex
 last-updated: 2025-11-18
 ---
+
 # DuckCoding 开发协作规范
 
 > 本文档为指导 AI AGENT 的开发协作规范，同时也作为 AI AGENT 开发指南和持久化项目记忆存在。文档共有 `CLAUDE.md`、`AGENTS.md` 两份。两份规范文档的正文部分必须始终保持一致，yaml头部无需同步。
@@ -70,6 +71,7 @@ last-updated: 2025-11-18
 ### 透明代理扩展指南
 
 添加新工具支持需要：
+
 1. 在 `services/proxy/headers/` 实现 `HeadersProcessor` trait
 2. 在 `services/proxy/headers/mod.rs` 的 `create_headers_processor` 工厂函数中注册
 3. 在 `models/tool.rs` 添加工具定义（如已存在则跳过）

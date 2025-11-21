@@ -74,7 +74,9 @@ function ToolProxyCard({
                 id={`${tool.id}-port`}
                 type="number"
                 value={config.port}
-                onChange={(e) => onConfigChange({ port: parseInt(e.target.value) || tool.defaultPort })}
+                onChange={(e) =>
+                  onConfigChange({ port: parseInt(e.target.value) || tool.defaultPort })
+                }
                 disabled={isRunning}
                 className="h-8 text-sm"
               />
@@ -328,9 +330,7 @@ export function MultiToolProxySettings() {
         <p className="text-xs text-muted-foreground">
           <strong>提示：</strong>
           启动代理后，请将对应工具的 API 地址配置为{' '}
-          <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">
-            http://127.0.0.1:端口
-          </code>
+          <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">http://127.0.0.1:端口</code>
           ，API Key 设置为上面生成的保护密钥。
         </p>
       </div>
