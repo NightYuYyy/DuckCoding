@@ -2,7 +2,6 @@
 agent: Codex
 last-updated: 2025-11-18
 ---
-
 # DuckCoding 开发协作规范
 
 > 本文档为指导 AI AGENT 的开发协作规范，同时也作为 AI AGENT 开发指南和持久化项目记忆存在。文档共有 `CLAUDE.md`、`AGENTS.md` 两份。两份规范文档的正文部分必须始终保持一致，yaml头部无需同步。
@@ -53,13 +52,26 @@ last-updated: 2025-11-18
 - [ ] Rust/前端测试已运行（或说明尚未覆盖的原因）。
 - [ ] 重要变更附测试或验证截图，方便 Reviewer。
 
-## 架构记忆（2025-11-20）
+## 架构记忆（2025-11-21）
 
 - `src-tauri/src/main.rs` 仅保留应用启动与托盘事件注册，所有 Tauri Commands 拆分到 `src-tauri/src/commands/*`，服务实现位于 `services/*`，核心设施放在 `core/*`（HTTP、日志、错误）。
-- 透明代理通过 `TransparentProxyState` 注入，并在 `proxy_commands` 内统一管理启停/回滚，若启动失败必须恢复 Claude Code 真实配置和全局配置。
+- **透明代理已重构为多工具架构**：
+  - `ProxyManager` 统一管理三个工具（Claude Code、Codex、Gemini CLI）的代理实例
+  - `HeadersProcessor` trait 定义工具特定的 headers 处理逻辑（位于 `services/proxy/headers/`）
+  - `ToolProxyConfig` 存储在 `GlobalConfig.proxy_configs` HashMap 中，每个工具独立配置
+  - 支持三个代理同时运行，端口由用户配置（默认: claude-code=8787, codex=8788, gemini-cli=8789）
+  - 旧的 `transparent_proxy_*` 字段会在读取配置时自动迁移到新结构
+  - 新命令：`start_tool_proxy`、`stop_tool_proxy`、`get_all_proxy_status`
+  - 旧命令保持兼容，内部使用新架构实现
 - 全局配置读写统一走 `utils::config::{read_global_config, write_global_config, apply_proxy_if_configured}`，避免出现多份路径逻辑；任何命令要修改配置都应调用这些辅助函数。
 - UpdateService / 统计命令等都通过 `tauri::State` 注入复用，前端 ToolStatus 的结构保持轻量字段 `{id,name,installed,version}`。
 - UI 相关的托盘/窗口操作集中在 `src-tauri/src/ui/*`，其它模块如需最小化到托盘请调用 `ui::hide_window_to_tray` 等封装方法。
-- 前端 ToolConfigManager 拆成 `src/components/tool-config/{Fields,types,utils}.tsx`，其中 `Fields` 负责 Schema 渲染控件，`types` 提供字段/枚举定义，`utils` 负责 JSON Schema 解析与 diff 计算，杜绝单文件超 1k 行。
-- 统计页对失败请求提供 Alert + 便捷重试入口，凭证变化会重置失败状态；配置/安装 hooks 会在执行前刷新最新 profile、判空 `navigator` 并在卸载时释放定时器，避免陈旧状态和内存泄露。
-- 更新检查改成事件驱动：`trigger_check_update` 会触发 `update-available` / `update-not-found`，托盘菜单、启动自动检查、About 页面与全局 `UpdateDialog` 共用同一套流程，前端监听事件后直接唤起弹窗。
+
+### 透明代理扩展指南
+
+添加新工具支持需要：
+1. 在 `services/proxy/headers/` 实现 `HeadersProcessor` trait
+2. 在 `services/proxy/headers/mod.rs` 的 `create_headers_processor` 工厂函数中注册
+3. 在 `models/tool.rs` 添加工具定义（如已存在则跳过）
+4. 在 `models/config.rs` 的 `default_proxy_configs` 函数中添加默认端口配置
+5. 无需修改 `ProxyManager` 和命令层代码（自动支持）
