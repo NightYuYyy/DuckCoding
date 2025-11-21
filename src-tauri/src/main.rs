@@ -15,7 +15,7 @@ mod commands;
 use commands::*;
 
 // 导入透明代理服务
-use duckcoding::TransparentProxyService;
+use duckcoding::{ProxyManager, TransparentProxyService};
 use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 
@@ -130,17 +130,24 @@ fn hide_window_to_tray<R: Runtime>(window: &WebviewWindow<R>) {
 }
 
 fn main() {
-    // 创建透明代理服务实例
+    // 创建透明代理服务实例（旧架构，保持兼容）
     let transparent_proxy_port = 8787; // 默认端口,实际会从配置读取
     let transparent_proxy_service = TransparentProxyService::new(transparent_proxy_port);
     let transparent_proxy_state = TransparentProxyState {
         service: Arc::new(TokioMutex::new(transparent_proxy_service)),
     };
 
+    // 创建多工具代理管理器（新架构）
+    let proxy_manager = Arc::new(ProxyManager::new());
+    let proxy_manager_state = ProxyManagerState {
+        manager: proxy_manager,
+    };
+
     let update_service_state = UpdateServiceState::new();
 
     let builder = tauri::Builder::default()
         .manage(transparent_proxy_state)
+        .manage(proxy_manager_state)
         .manage(update_service_state)
         .setup(|app| {
             // 尝试在应用启动时加载全局配置并应用代理设置,确保子进程继承代理 env
@@ -333,6 +340,10 @@ fn main() {
             stop_transparent_proxy,
             get_transparent_proxy_status,
             update_transparent_proxy_config,
+            // 多工具透明代理命令（新架构）
+            start_tool_proxy,
+            stop_tool_proxy,
+            get_all_proxy_status,
             // 更新管理相关命令
             check_for_app_updates,
             download_app_update,

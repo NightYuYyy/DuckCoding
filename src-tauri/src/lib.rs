@@ -18,6 +18,9 @@ pub use services::transparent_proxy::{ProxyConfig, TransparentProxyService};
 pub use services::transparent_proxy_config::TransparentProxyConfigService;
 pub use services::update::UpdateService;
 pub use services::version::VersionService;
+// Re-export new proxy architecture types
+pub use models::ToolProxyConfig;
+pub use services::proxy::{HeadersProcessor, ProxyInstance, ProxyManager};
 
 // Re-export selected utils items to avoid conflicts with update::PlatformInfo
 pub use utils::command::*;

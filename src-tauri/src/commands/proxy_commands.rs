@@ -1,18 +1,26 @@
 // 代理相关命令
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::State;
 use tokio::sync::Mutex as TokioMutex;
 
-use ::duckcoding::services::proxy::{TransparentProxyConfigService, TransparentProxyService};
+use ::duckcoding::services::proxy::{
+    ProxyManager, TransparentProxyConfigService, TransparentProxyService,
+};
 use ::duckcoding::utils::config::{read_global_config, write_global_config};
 use ::duckcoding::{GlobalConfig, ProxyConfig, Tool};
 
 // ==================== 类型定义 ====================
 
-// 透明代理全局状态
+// 透明代理全局状态（旧架构，保持兼容）
 pub struct TransparentProxyState {
     pub service: Arc<TokioMutex<TransparentProxyService>>,
+}
+
+// 代理管理器状态（新架构）
+pub struct ProxyManagerState {
+    pub manager: Arc<ProxyManager>,
 }
 
 // 透明代理相关的 Tauri Commands
@@ -326,4 +334,163 @@ pub async fn test_proxy_request(
             error: Some(e.to_string()),
         }),
     }
+}
+
+// ==================== 多工具代理命令（新架构） ====================
+
+/// 启动指定工具的透明代理
+#[tauri::command]
+pub async fn start_tool_proxy(
+    tool_id: String,
+    manager_state: State<'_, ProxyManagerState>,
+) -> Result<String, String> {
+    // 读取全局配置
+    let mut config = get_global_config()
+        .await
+        .map_err(|e| format!("读取配置失败: {}", e))?
+        .ok_or_else(|| "全局配置不存在，请先配置用户信息".to_string())?;
+
+    // 确保工具的代理配置存在
+    let default_ports: HashMap<&str, u16> =
+        [("claude-code", 8787), ("codex", 8788), ("gemini-cli", 8789)]
+            .iter()
+            .cloned()
+            .collect();
+
+    let default_port = default_ports.get(tool_id.as_str()).copied().unwrap_or(8790);
+    config.ensure_proxy_config(&tool_id, default_port);
+
+    // 获取工具的代理配置
+    let tool_config = config
+        .get_proxy_config(&tool_id)
+        .ok_or_else(|| format!("工具 {} 的代理配置不存在", tool_id))?
+        .clone();
+
+    // 检查是否启用
+    if !tool_config.enabled {
+        return Err(format!("{} 的透明代理未启用，请先在设置中启用", tool_id));
+    }
+
+    // 保存端口用于后续消息
+    let proxy_port = tool_config.port;
+
+    // 获取工具定义
+    let tool = Tool::by_id(&tool_id).ok_or_else(|| format!("未知工具: {}", tool_id))?;
+
+    // 如果还没有备份过真实配置，先备份
+    let updated_config = if tool_config.real_api_key.is_none() {
+        let local_api_key = tool_config
+            .local_api_key
+            .clone()
+            .ok_or_else(|| "透明代理保护密钥未设置".to_string())?;
+
+        TransparentProxyConfigService::enable_transparent_proxy(
+            &tool,
+            &mut config,
+            tool_config.port,
+            &local_api_key,
+        )
+        .map_err(|e| format!("启用透明代理失败: {}", e))?;
+
+        // 保存更新后的配置
+        save_global_config(config.clone())
+            .await
+            .map_err(|e| format!("保存配置失败: {}", e))?;
+
+        config
+            .get_proxy_config(&tool_id)
+            .ok_or_else(|| "配置保存后丢失".to_string())?
+            .clone()
+    } else {
+        // 已经备份过配置，只需确保当前配置指向本地代理
+        let local_api_key = tool_config
+            .local_api_key
+            .clone()
+            .ok_or_else(|| "透明代理保护密钥未设置".to_string())?;
+
+        TransparentProxyConfigService::update_config_to_proxy(
+            &tool,
+            tool_config.port,
+            &local_api_key,
+        )
+        .map_err(|e| format!("更新代理配置失败: {}", e))?;
+
+        tool_config
+    };
+
+    // 启动代理
+    manager_state
+        .manager
+        .start_proxy(&tool_id, updated_config)
+        .await
+        .map_err(|e| format!("启动代理失败: {}", e))?;
+
+    Ok(format!(
+        "✅ {} 透明代理已启动\n监听端口: {}\n请求将自动转发",
+        tool_id, proxy_port
+    ))
+}
+
+/// 停止指定工具的透明代理
+#[tauri::command]
+pub async fn stop_tool_proxy(
+    tool_id: String,
+    manager_state: State<'_, ProxyManagerState>,
+) -> Result<String, String> {
+    // 读取全局配置
+    let config = get_global_config()
+        .await
+        .map_err(|e| format!("读取配置失败: {}", e))?
+        .ok_or_else(|| "全局配置不存在".to_string())?;
+
+    // 停止代理
+    manager_state
+        .manager
+        .stop_proxy(&tool_id)
+        .await
+        .map_err(|e| format!("停止代理失败: {}", e))?;
+
+    // 恢复工具配置
+    if let Some(tool_config) = config.get_proxy_config(&tool_id) {
+        if tool_config.real_api_key.is_some() {
+            let tool = Tool::by_id(&tool_id).ok_or_else(|| format!("未知工具: {}", tool_id))?;
+
+            TransparentProxyConfigService::disable_transparent_proxy(&tool, &config)
+                .map_err(|e| format!("恢复配置失败: {}", e))?;
+        }
+    }
+
+    Ok(format!("✅ {} 透明代理已停止\n配置已恢复", tool_id))
+}
+
+/// 获取所有工具的透明代理状态
+#[tauri::command]
+pub async fn get_all_proxy_status(
+    manager_state: State<'_, ProxyManagerState>,
+) -> Result<HashMap<String, TransparentProxyStatus>, String> {
+    let config = get_global_config().await.ok().flatten();
+
+    let mut status_map = HashMap::new();
+
+    for tool_id in &["claude-code", "codex", "gemini-cli"] {
+        let port = config
+            .as_ref()
+            .and_then(|c| c.get_proxy_config(tool_id))
+            .map(|tc| tc.port)
+            .unwrap_or_else(|| match *tool_id {
+                "claude-code" => 8787,
+                "codex" => 8788,
+                "gemini-cli" => 8789,
+                _ => 8790,
+            });
+
+        let running = manager_state.manager.is_running(tool_id).await;
+
+        status_map.insert(
+            tool_id.to_string(),
+            TransparentProxyStatus { running, port },
+        );
+    }
+
+    Ok(status_map)
 }
