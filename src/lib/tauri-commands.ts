@@ -54,6 +54,8 @@ export interface GlobalConfig {
   transparent_proxy_real_base_url?: string;
   // 多工具透明代理配置（新架构）
   proxy_configs?: Record<string, ToolProxyConfig>;
+  // 会话级端点配置开关（默认关闭）
+  session_endpoint_config_enabled?: boolean;
 }
 
 export interface GenerateApiKeyResult {
@@ -212,6 +214,15 @@ export async function deleteProfile(tool: string, profile: string): Promise<void
 
 export async function getActiveConfig(tool: string): Promise<ActiveConfig> {
   return await invoke<ActiveConfig>('get_active_config', { tool });
+}
+
+/**
+ * 获取指定配置文件的详情（不激活）
+ * @param tool - 工具 ID
+ * @param profile - 配置名称
+ */
+export async function getProfileConfig(tool: string, profile: string): Promise<ActiveConfig> {
+  return await invoke<ActiveConfig>('get_profile_config', { tool, profile });
 }
 
 export async function saveGlobalConfig(config: GlobalConfig): Promise<void> {
@@ -435,4 +446,107 @@ export async function getPlatformInfo(): Promise<PlatformInfo> {
 
 export async function getRecommendedPackageFormat(): Promise<PackageFormatInfo> {
   return await invoke<PackageFormatInfo>('get_recommended_package_format');
+}
+
+// ==================== 会话管理 API ====================
+
+/**
+ * 会话记录（后端数据模型）
+ */
+export interface SessionRecord {
+  session_id: string;
+  display_id: string;
+  tool_id: string;
+  config_name: string;
+  /** 自定义配置名称（config_name 为 "custom" 时记录） */
+  custom_profile_name: string | null;
+  url: string;
+  api_key: string;
+  /** 会话备注 */
+  note: string | null;
+  first_seen_at: number;
+  last_seen_at: number;
+  request_count: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * 会话列表响应
+ */
+export interface SessionListResponse {
+  sessions: SessionRecord[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+/**
+ * 获取会话列表
+ * @param toolId - 工具 ID ("claude-code", "codex", "gemini-cli")
+ * @param page - 页码（从 1 开始）
+ * @param pageSize - 每页数量
+ */
+export async function getSessionList(
+  toolId: string,
+  page: number,
+  pageSize: number,
+): Promise<SessionListResponse> {
+  return await invoke<SessionListResponse>('get_session_list', {
+    toolId,
+    page,
+    pageSize,
+  });
+}
+
+/**
+ * 删除单个会话
+ * @param sessionId - 完整的会话 ID
+ */
+export async function deleteSession(sessionId: string): Promise<void> {
+  return await invoke<void>('delete_session', { sessionId });
+}
+
+/**
+ * 清空指定工具的所有会话
+ * @param toolId - 工具 ID
+ */
+export async function clearAllSessions(toolId: string): Promise<void> {
+  return await invoke<void>('clear_all_sessions', { toolId });
+}
+
+/**
+ * 更新会话配置
+ * @param sessionId - 会话 ID
+ * @param configName - 配置名称 ("global" 或 "custom")
+ * @param customProfileName - 自定义配置名称 (global 时为 null)
+ * @param url - API Base URL (global 时为空字符串)
+ * @param apiKey - API Key (global 时为空字符串)
+ */
+export async function updateSessionConfig(
+  sessionId: string,
+  configName: string,
+  customProfileName: string | null,
+  url: string,
+  apiKey: string,
+): Promise<void> {
+  return await invoke<void>('update_session_config', {
+    sessionId,
+    configName,
+    customProfileName,
+    url,
+    apiKey,
+  });
+}
+
+/**
+ * 更新会话备注
+ * @param sessionId - 会话 ID
+ * @param note - 备注内容 (null 表示清空)
+ */
+export async function updateSessionNote(sessionId: string, note: string | null): Promise<void> {
+  return await invoke<void>('update_session_note', {
+    sessionId,
+    note,
+  });
 }
