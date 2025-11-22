@@ -66,6 +66,9 @@ pub struct GlobalConfig {
     // 多工具透明代理配置（新架构）
     #[serde(default = "default_proxy_configs")]
     pub proxy_configs: HashMap<String, ToolProxyConfig>,
+    // 会话级端点配置开关（默认关闭）
+    #[serde(default)]
+    pub session_endpoint_config_enabled: bool,
 }
 
 fn default_transparent_proxy_port() -> u16 {

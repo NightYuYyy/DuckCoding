@@ -5,14 +5,17 @@
 // - tool: 工具安装、版本检查、下载
 // - proxy: 代理配置和透明代理
 // - update: 应用自身更新
+// - session: 会话管理（透明代理请求追踪）
 
 pub mod config;
 pub mod proxy;
+pub mod session;
 pub mod tool;
 pub mod update;
 
 // 重新导出服务
 pub use config::*;
 pub use proxy::*;
+pub use session::*;
 pub use tool::*;
 pub use update::*;

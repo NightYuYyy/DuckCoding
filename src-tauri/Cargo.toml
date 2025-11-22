@@ -40,6 +40,13 @@ pin-project-lite = "0.2"
 bytes = "1"
 futures-util = "0.3"
 async-trait = "0.1"
+# 数据库
+rusqlite = { version = "0.32", features = ["bundled"] }
+# 单例模式
+lazy_static = "1.5"
+
+[dev-dependencies]
+tempfile = "3.8"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.26"

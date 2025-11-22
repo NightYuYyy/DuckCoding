@@ -1,0 +1,87 @@
+// 会话数据模型和事件定义
+
+use serde::{Deserialize, Serialize};
+
+/// 代理会话记录（数据库模型）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxySession {
+    /// 完整会话ID（主键，来自 metadata.user_id）
+    pub session_id: String,
+    /// 显示ID（_session_ 后的 UUID 部分）
+    pub display_id: String,
+    /// 工具ID（"claude-code", "codex", "gemini-cli"）
+    pub tool_id: String,
+    /// 配置名称（"global" 或 "custom"）
+    pub config_name: String,
+    /// 自定义配置名称（config_name 为 custom 时记录）
+    pub custom_profile_name: Option<String>,
+    /// API Base URL（当 config_name 为 custom 时使用）
+    pub url: String,
+    /// API Key（当 config_name 为 custom 时使用）
+    pub api_key: String,
+    /// 会话备注
+    pub note: Option<String>,
+    /// 首次记录时间（Unix 时间戳，秒）
+    pub first_seen_at: i64,
+    /// 最后活跃时间（Unix 时间戳，秒）
+    pub last_seen_at: i64,
+    /// 请求次数
+    pub request_count: i32,
+    /// 创建时间（Unix 时间戳，秒）
+    pub created_at: i64,
+    /// 更新时间（Unix 时间戳，秒）
+    pub updated_at: i64,
+}
+
+/// 会话事件（异步队列传递）
+#[derive(Debug, Clone)]
+pub enum SessionEvent {
+    /// 新请求事件
+    NewRequest {
+        session_id: String,
+        tool_id: String,
+        timestamp: i64,
+    },
+}
+
+/// 会话列表响应
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SessionListResponse {
+    /// 会话列表
+    pub sessions: Vec<ProxySession>,
+    /// 总数
+    pub total: usize,
+    /// 当前页
+    pub page: usize,
+    /// 每页大小
+    pub page_size: usize,
+}
+
+impl ProxySession {
+    /// 从 user_id 提取 display_id（_session_ 后的 UUID 部分）
+    pub fn extract_display_id(user_id: &str) -> Option<String> {
+        user_id.split("_session_").nth(1).map(|s| s.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_display_id() {
+        let user_id = "user_42a8ca527d882b0a9b60e27011856f2018295786e9c6dc09cefbb7e0caba49ab_account__session_f7aa73fc-73a9-4148-ba8b-1b9f4aa5ebc3";
+        let display_id = ProxySession::extract_display_id(user_id);
+        assert_eq!(
+            display_id,
+            Some("f7aa73fc-73a9-4148-ba8b-1b9f4aa5ebc3".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_display_id_no_session() {
+        let user_id = "user_42a8ca527d882b0a9b60e27011856f20";
+        let display_id = ProxySession::extract_display_id(user_id);
+        assert_eq!(display_id, None);
+    }
+}
