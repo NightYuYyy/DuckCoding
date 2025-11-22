@@ -121,6 +121,7 @@ export function TransparentProxyPage() {
                 port={toolPort}
                 isLoading={toolIsLoading}
                 isConfigured={toolIsConfigured}
+                config={toolData.config}
                 onStart={() => handleStartProxy(tool.id)}
                 onStop={() => handleStopProxy(tool.id)}
               />
