@@ -9,7 +9,7 @@ pub fn config_dir() -> Result<PathBuf, String> {
     let config_dir = home_dir.join(".duckcoding");
     if !config_dir.exists() {
         fs::create_dir_all(&config_dir)
-            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+            .map_err(|e| format!("Failed to create config directory: {e}"))?;
     }
     Ok(config_dir)
 }
@@ -27,9 +27,9 @@ pub fn read_global_config() -> Result<Option<GlobalConfig>, String> {
     }
 
     let content =
-        fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;
+        fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {e}"))?;
     let mut config: GlobalConfig =
-        serde_json::from_str(&content).map_err(|e| format!("Failed to parse config: {}", e))?;
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse config: {e}"))?;
 
     // 自动迁移旧的透明代理配置到新结构
     migrate_proxy_config(&mut config)?;
@@ -79,8 +79,8 @@ fn migrate_proxy_config(config: &mut GlobalConfig) -> Result<(), String> {
         // 保存迁移后的配置到磁盘
         let config_path = global_config_path()?;
         let json = serde_json::to_string_pretty(config)
-            .map_err(|e| format!("Failed to serialize config: {}", e))?;
-        fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {}", e))?;
+            .map_err(|e| format!("Failed to serialize config: {e}"))?;
+        fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {e}"))?;
 
         #[cfg(unix)]
         {
@@ -119,14 +119,25 @@ fn migrate_session_config(config: &mut GlobalConfig) -> Result<(), String> {
         config.session_endpoint_config_enabled = false;
 
         if migrated {
-            tracing::info!("正在迁移全局会话端点配置到工具级");
+            tracing::info!("🔄 正在迁移全局会话端点配置到工具级");
         }
 
         // 保存迁移后的配置到磁盘
         let config_path = global_config_path()?;
         let json = serde_json::to_string_pretty(config)
-            .map_err(|e| format!("Failed to serialize config: {}", e))?;
-        fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {}", e))?;
+            .map_err(|e| format!("Failed to serialize config: {e}"))?;
+        fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {e}"))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&config_path)
+                .map_err(|e| format!("Failed to get file metadata: {e}"))?
+                .permissions();
+            perms.set_mode(0o600);
+            fs::set_permissions(&config_path, perms)
+                .map_err(|e| format!("Failed to set file permissions: {e}"))?;
+        }
 
         #[cfg(unix)]
         {
@@ -149,9 +160,9 @@ fn migrate_session_config(config: &mut GlobalConfig) -> Result<(), String> {
 pub fn write_global_config(config: &GlobalConfig) -> Result<(), String> {
     let config_path = global_config_path()?;
     let json = serde_json::to_string_pretty(config)
-        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+        .map_err(|e| format!("Failed to serialize config: {e}"))?;
 
-    fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {}", e))?;
+    fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {e}"))?;
 
     #[cfg(unix)]
     {

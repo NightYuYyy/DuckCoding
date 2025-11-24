@@ -480,17 +480,19 @@ impl ConfigService {
                 // 只备份当前 provider 的完整配置
                 if let Some(providers) = doc.get("model_providers").and_then(|p| p.as_table()) {
                     if let Some(current_provider) = providers.get(current_provider_name) {
+
                         tracing::debug!(
                             provider = %current_provider_name,
                             profile = %profile_name,
                             "备份 Codex 配置"
+
                         );
                         let mut backup_providers = toml_edit::Table::new();
                         backup_providers.insert(current_provider_name, current_provider.clone());
                         backup_doc
                             .insert("model_providers", toml_edit::Item::Table(backup_providers));
                     } else {
-                        anyhow::bail!("未找到 model_provider '{}' 的配置", current_provider_name);
+                        anyhow::bail!("未找到 model_provider '{current_provider_name}' 的配置");
                     }
                 } else {
                     anyhow::bail!("配置文件缺少 model_providers 表");
